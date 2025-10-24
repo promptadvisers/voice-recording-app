@@ -25,9 +25,17 @@ const transcriptionText = document.getElementById('transcription-text');
 if (!audioUrl) {
     document.querySelector('.player-container').innerHTML = '<div class="error">No audio URL provided</div>';
 } else {
-    // Use proxy endpoint to ensure CORS headers are set correctly
-    const proxyUrl = `/api/audio-proxy?url=${encodeURIComponent(audioUrl)}`;
-    audio.src = proxyUrl;
+    // Try direct S3 URL first (faster), fall back to proxy if CORS fails
+    audio.src = audioUrl;
+
+    // If direct load fails, try proxy as fallback
+    audio.addEventListener('error', () => {
+        if (audio.src === audioUrl) {
+            console.log('Direct S3 load failed, trying proxy...');
+            const proxyUrl = `/api/audio-proxy?url=${encodeURIComponent(audioUrl)}`;
+            audio.src = proxyUrl;
+        }
+    }, { once: true });
 
     // Set title
     if (title) {
