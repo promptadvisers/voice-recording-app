@@ -4,7 +4,7 @@
  */
 
 class S3Uploader {
-  constructor(apiBaseUrl = 'http://localhost:3001/api') {
+  constructor(apiBaseUrl = '/api') {
     this.apiBaseUrl = apiBaseUrl;
     this.uploadInProgress = false;
     this.abortController = null;

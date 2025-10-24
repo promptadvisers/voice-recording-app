@@ -562,7 +562,7 @@ async function transcribeRecording(fileUrl) {
     }
 
     // Call transcription API
-    const response = await fetch('http://localhost:3001/api/transcribe', {
+    const response = await fetch('/api/transcribe', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
