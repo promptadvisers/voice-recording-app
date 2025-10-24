@@ -3,6 +3,7 @@ const urlParams = new URLSearchParams(window.location.search);
 const audioUrl = urlParams.get('url');
 const title = urlParams.get('title');
 const transcription = urlParams.get('transcription');
+const durationParam = urlParams.get('duration'); // Duration in seconds
 
 // Get elements
 const audio = document.getElementById('audio');
@@ -47,6 +48,13 @@ if (!audioUrl) {
     if (transcription) {
         transcriptionText.textContent = decodeURIComponent(transcription);
         transcriptionEl.classList.add('visible');
+    }
+
+    // Set duration immediately if provided in URL
+    if (durationParam && !isNaN(parseFloat(durationParam))) {
+        const duration = parseFloat(durationParam);
+        durationEl.textContent = formatTime(duration);
+        recordingDate.textContent = `Duration: ${formatTime(duration)}`;
     }
 
     // Generate waveform bars

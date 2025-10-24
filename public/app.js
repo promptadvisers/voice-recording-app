@@ -415,7 +415,7 @@ function closePlayerModal() {
 /**
  * Generate player URL from S3 URL
  */
-function generatePlayerUrl(s3Url, title = null, transcription = null) {
+function generatePlayerUrl(s3Url, title = null, transcription = null, duration = null) {
   const baseUrl = window.location.origin;
   const params = new URLSearchParams();
 
@@ -429,6 +429,10 @@ function generatePlayerUrl(s3Url, title = null, transcription = null) {
     params.append('transcription', transcription);
   }
 
+  if (duration && !isNaN(duration) && isFinite(duration)) {
+    params.append('duration', duration);
+  }
+
   return `${baseUrl}/player.html?${params.toString()}`;
 }
 
@@ -439,7 +443,11 @@ async function copyShareLink(url) {
   // Generate pretty player URL instead of raw S3 link
   const filename = url.split('/').pop().split('?')[0];
   const title = filename.replace(/\.[^/.]+$/, '').replace(/_/g, ' ').replace(/-/g, ' ');
-  const playerUrl = generatePlayerUrl(url, title, currentTranscription);
+
+  // Try to get duration from the audio element if it's playing
+  const duration = currentRecordingUrl === url && audioElement && audioElement.duration ? audioElement.duration : null;
+
+  const playerUrl = generatePlayerUrl(url, title, currentTranscription, duration);
 
   const success = await S3Uploader.copyToClipboard(playerUrl);
 
