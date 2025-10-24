@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Record and share voice recordings with ease">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <title>Voice Recording App</title>
+    <!-- Typography: Plus Jakarta Sans for premium, crisp type -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css?v=20251002-typography">
+</head>
+<body data-theme="light">
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <div class="brand-group">
+                <h1 class="app-title">
+                    <svg class="mic-icon" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
+                        <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+                        <line x1="12" y1="19" x2="12" y2="23"></line>
+                        <line x1="8" y1="23" x2="16" y2="23"></line>
+                    </svg>
+                    <span class="app-title-text" data-title="Voice Recorder">Voice Recorder</span>
+                </h1>
+                <p class="app-subtitle" data-subtitle="Capture studio-grade voice notes and let AI handle the rest.">Capture studio-grade voice notes and let AI handle the rest.</p>
+            </div>
+            <div class="header-controls">
+                <button class="theme-toggle" id="themeToggle" aria-label="Toggle dark mode">
+                    <svg class="sun-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="5"></circle>
+                        <line x1="12" y1="1" x2="12" y2="3"></line>
+                        <line x1="12" y1="21" x2="12" y2="23"></line>
+                        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                        <line x1="1" y1="12" x2="3" y2="12"></line>
+                        <line x1="21" y1="12" x2="23" y2="12"></line>
+                        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+                    </svg>
+                    <svg class="moon-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+                    </svg>
+                </button>
+            </div>
+        </header>
+
+        <main class="layout-grid">
+        <!-- Recording Section -->
+        <section class="recording-section">
+            <div class="recorder-card">
+                <div class="visualizer-container" id="visualizerContainer">
+                    <canvas id="visualizer" width="300" height="100"></canvas>
+                </div>
+
+                <div class="recording-info">
+                    <div class="recording-status" id="recordingStatus">Ready to record</div>
+                    <div class="recording-time" id="recordingTime">00:00</div>
+                </div>
+
+                <div class="record-button-shell">
+                    <div class="record-button-ring"></div>
+                    <button class="record-button" id="recordButton" aria-label="Start recording">
+                        <svg class="mic-svg" width="48" height="48" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
+                            <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+                            <line x1="12" y1="19" x2="12" y2="23" stroke="currentColor" stroke-width="2"></line>
+                            <line x1="8" y1="23" x2="16" y2="23" stroke="currentColor" stroke-width="2"></line>
+                        </svg>
+                        <svg class="stop-svg" width="48" height="48" viewBox="0 0 24 24" fill="currentColor" style="display: none;">
+                            <rect x="6" y="6" width="12" height="12" rx="2"></rect>
+                        </svg>
+                    </button>
+                </div>
+                <p class="record-hint">Single tap to start capturing. Whisper handles transcription automatically.</p>
+
+                <div class="upload-progress" id="uploadProgress" style="display: none;">
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="progressFill"></div>
+                    </div>
+                    <div class="progress-text" id="progressText">Uploading... 0%</div>
+                </div>
+
+                <div class="error-message" id="errorMessage" style="display: none;"></div>
+
+                <!-- Transcription Section -->
+                <div class="transcription-section" id="transcriptionSection">
+                    <div class="transcription-header">
+                        <h3>
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                                <polyline points="14 2 14 8 20 8"></polyline>
+                                <line x1="16" y1="13" x2="8" y2="13"></line>
+                                <line x1="16" y1="17" x2="8" y2="17"></line>
+                                <polyline points="10 9 9 9 8 9"></polyline>
+                            </svg>
+                            Transcription
+                            <span class="ai-badge">AI Powered</span>
+                        </h3>
+                        <div class="transcription-title" id="transcriptionTitle" style="display: none;">
+                            <span class="title-label">Suggested title:</span>
+                            <span class="title-text"></span>
+                        </div>
+                    </div>
+
+                    <div class="transcription-loading" id="transcriptionLoading">
+                        <div class="transcription-spinner"></div>
+                        <div>
+                            <div style="font-weight: 600; margin-bottom: 4px;">Transcribing audio...</div>
+                            <div style="font-size: 0.875rem; color: var(--text-secondary);">Using OpenAI Whisper API</div>
+                        </div>
+                    </div>
+
+                    <div class="transcription-text" id="transcriptionText" style="display: none;"></div>
+
+                    <div class="transcription-actions" id="transcriptionActions" style="display: none;">
+                        <button class="transcription-btn" id="copyTranscriptionBtn">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                            </svg>
+                            Copy
+                        </button>
+                        <button class="transcription-btn" id="downloadTranscriptionBtn">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                <polyline points="7 10 12 15 17 10"></polyline>
+                                <line x1="12" y1="15" x2="12" y2="3"></line>
+                            </svg>
+                            Download
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Recordings List -->
+        <section class="recordings-section">
+            <div class="recordings-card">
+                <div class="section-header">
+                    <div>
+                        <h2>Your Recordings</h2>
+                        <p class="section-subtitle">Manage, play back, and share your captured moments.</p>
+                    </div>
+                    <button class="refresh-button" id="refreshButton" aria-label="Refresh recordings list">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="23 4 23 10 17 10"></polyline>
+                            <polyline points="1 20 1 14 7 14"></polyline>
+                            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+                        </svg>
+                    </button>
+                </div>
+
+                <div class="recordings-list" id="recordingsList">
+                    <div class="loading-spinner" id="loadingSpinner">
+                        <div class="spinner"></div>
+                        <p>Loading recordings...</p>
+                    </div>
+                    <div class="empty-state" id="emptyState" style="display: none;">
+                        <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
+                            <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+                            <line x1="12" y1="19" x2="12" y2="23"></line>
+                            <line x1="8" y1="23" x2="16" y2="23"></line>
+                        </svg>
+                        <p>No recordings yet</p>
+                        <p class="empty-state-subtitle">Start recording to create your first audio file</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+        </main>
+    </div>
+
+    <!-- Audio Player Modal -->
+    <div class="modal" id="playerModal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="playerTitle">Recording</h3>
+                <button class="close-button" id="closePlayer" aria-label="Close player">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                </button>
+            </div>
+            <div class="player-container">
+                <canvas id="waveform" width="600" height="100"></canvas>
+                <audio id="audioPlayer" preload="metadata"></audio>
+                <div class="player-controls">
+                    <button class="player-button" id="playPauseButton" aria-label="Play/Pause">
+                        <svg class="play-icon" width="32" height="32" viewBox="0 0 24 24" fill="currentColor">
+                            <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                        </svg>
+                        <svg class="pause-icon" width="32" height="32" viewBox="0 0 24 24" fill="currentColor" style="display: none;">
+                            <rect x="6" y="4" width="4" height="16"></rect>
+                            <rect x="14" y="4" width="4" height="16"></rect>
+                        </svg>
+                    </button>
+                    <div class="time-display">
+                        <span id="currentTime">0:00</span> / <span id="duration">0:00</span>
+                    </div>
+                    <input type="range" class="seek-bar" id="seekBar" min="0" max="100" value="0" aria-label="Seek">
+                    <div class="player-options">
+                        <label for="speedControl">Speed:</label>
+                        <select id="speedControl" aria-label="Playback speed">
+                            <option value="0.5">0.5x</option>
+                            <option value="0.75">0.75x</option>
+                            <option value="1" selected>1x</option>
+                            <option value="1.25">1.25x</option>
+                            <option value="1.5">1.5x</option>
+                            <option value="2">2x</option>
+                        </select>
+                        <label for="volumeControl">Volume:</label>
+                        <input type="range" id="volumeControl" min="0" max="100" value="100" aria-label="Volume">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Delete Confirmation Modal -->
+    <div class="modal" id="deleteModal" style="display: none;">
+        <div class="modal-content modal-small">
+            <h3>Delete Recording?</h3>
+            <p>This action cannot be undone.</p>
+            <div class="modal-actions">
+                <button class="button button-secondary" id="cancelDelete">Cancel</button>
+                <button class="button button-danger" id="confirmDelete">Delete</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div class="toast" id="toast" style="display: none;"></div>
+
+    <!-- Scripts -->
+    <script src="recorder.js"></script>
+    <script src="uploader.js"></script>
+    <script src="player.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>

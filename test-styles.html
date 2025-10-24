@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <title>CSS Style Test - Voice Recorder</title>
+    <style>
+        /* Inline critical CSS to verify styles work */
+        @import url('styles.css?v=20251002-ultra');
+    </style>
+</head>
+<body data-theme="light">
+    <div style="padding: 40px; max-width: 1080px; margin: 0 auto;">
+        <h1 style="font-size: 2rem; margin-bottom: 40px; text-align: center;">
+            🎨 CSS Style Test Page
+        </h1>
+
+        <!-- Test Card -->
+        <div class="recorder-card" style="margin-bottom: 40px;">
+            <div class="recording-info">
+                <div class="recording-status">CSS is loading!</div>
+                <div class="recording-time">00:00</div>
+            </div>
+
+            <button class="record-button" style="margin: 40px auto; display: flex;">
+                <svg class="mic-svg" width="48" height="48" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
+                    <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+                    <line x1="12" y1="19" x2="12" y2="23" stroke="currentColor" stroke-width="2"></line>
+                    <line x1="8" y1="23" x2="16" y2="23" stroke="currentColor" stroke-width="2"></line>
+                </svg>
+            </button>
+
+            <div style="text-align: center; margin-top: 20px;">
+                <h2 style="font-size: 1.5rem; margin-bottom: 16px;">✅ Style Checklist</h2>
+                <div style="text-align: left; max-width: 500px; margin: 0 auto;">
+                    <p style="margin: 10px 0;">✓ Do you see a large blue/purple gradient timer?</p>
+                    <p style="margin: 10px 0;">✓ Is the button purple/pink gradient with glow?</p>
+                    <p style="margin: 10px 0;">✓ Is this card white with premium shadows?</p>
+                    <p style="margin: 10px 0;">✓ Does the button have smooth hover effects?</p>
+                    <p style="margin: 10px 0;">✓ Is there a subtle gradient at the top of this card?</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sample Recording Item -->
+        <div style="background: var(--bg-card); border-radius: var(--radius-lg); padding: 40px; box-shadow: var(--shadow-premium);">
+            <h2 style="margin-bottom: 20px;">Sample Recording Item:</h2>
+            <div class="recording-item">
+                <div class="recording-info-group">
+                    <div class="recording-name">test_recording.webm</div>
+                    <div class="recording-meta">
+                        <span>2.5 MB</span>
+                        <span>2 minutes ago</span>
+                    </div>
+                </div>
+                <div class="recording-actions">
+                    <button class="icon-button play-btn">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                            <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                        </svg>
+                    </button>
+                    <button class="icon-button share-btn">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"></path>
+                            <polyline points="16 6 12 2 8 6"></polyline>
+                            <line x1="12" y1="2" x2="12" y2="15"></line>
+                        </svg>
+                    </button>
+                    <button class="icon-button delete-btn">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="3 6 5 6 21 6"></polyline>
+                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Navigation -->
+        <div style="text-align: center; margin-top: 40px; padding: 20px; background: var(--accent-light); border-radius: var(--radius-md);">
+            <p style="font-size: 1.1rem; margin-bottom: 16px;">
+                <strong>If everything above looks beautiful and futuristic:</strong>
+            </p>
+            <p style="margin-bottom: 16px;">
+                ✅ Your CSS is working perfectly!
+            </p>
+            <a href="/" style="display: inline-block; padding: 12px 32px; background: var(--accent-color); color: white; text-decoration: none; border-radius: var(--radius-md); font-weight: 600; transition: var(--transition);">
+                Go to Main App
+            </a>
+            <p style="margin-top: 20px; font-size: 0.9rem; color: var(--text-secondary);">
+                If it still looks plain, check the <code>FORCE_RELOAD_GUIDE.md</code> file
+            </p>
+        </div>
+    </div>
+
+    <script>
+        // Log CSS loading status
+        console.log('%c🎨 CSS Test Page Loaded', 'font-size: 20px; color: #667eea;');
+        console.log('Checking if styles are applied...');
+        
+        const recordButton = document.querySelector('.record-button');
+        if (recordButton) {
+            const styles = window.getComputedStyle(recordButton);
+            const background = styles.background || styles.backgroundImage;
+            console.log('Record button background:', background);
+            
+            if (background.includes('gradient')) {
+                console.log('%c✅ CSS IS WORKING! Gradient detected!', 'color: green; font-weight: bold; font-size: 16px;');
+            } else {
+                console.log('%c❌ CSS NOT LOADING - No gradient detected', 'color: red; font-weight: bold; font-size: 16px;');
+                console.log('Try: Right-click refresh → Empty Cache and Hard Reload');
+            }
+        }
+    </script>
+</body>
+</html>
+
