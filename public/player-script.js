@@ -25,7 +25,9 @@ const transcriptionText = document.getElementById('transcription-text');
 if (!audioUrl) {
     document.querySelector('.player-container').innerHTML = '<div class="error">No audio URL provided</div>';
 } else {
-    audio.src = audioUrl;
+    // Use proxy endpoint to ensure CORS headers are set correctly
+    const proxyUrl = `/api/audio-proxy?url=${encodeURIComponent(audioUrl)}`;
+    audio.src = proxyUrl;
 
     // Set title
     if (title) {

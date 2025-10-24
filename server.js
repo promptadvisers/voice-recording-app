@@ -606,6 +606,48 @@ app.post('/api/transcribe', async (req, res) => {
   }
 });
 
+// Proxy endpoint for audio files with CORS headers
+app.get('/api/audio-proxy', async (req, res) => {
+  try {
+    const { url } = req.query;
+
+    if (!url) {
+      return res.status(400).json({ error: 'URL parameter is required' });
+    }
+
+    // Fetch the audio file
+    const response = await fetch(url);
+
+    if (!response.ok) {
+      return res.status(response.status).json({ error: 'Failed to fetch audio' });
+    }
+
+    // Set CORS headers
+    res.set('Access-Control-Allow-Origin', '*');
+    res.set('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
+    res.set('Access-Control-Allow-Headers', '*');
+    res.set('Access-Control-Expose-Headers', 'Content-Length, Content-Type, Content-Range, Accept-Ranges');
+
+    // Set content type
+    const contentType = response.headers.get('content-type') || 'audio/webm';
+    res.set('Content-Type', contentType);
+
+    // Enable range requests for seeking
+    const contentLength = response.headers.get('content-length');
+    if (contentLength) {
+      res.set('Content-Length', contentLength);
+    }
+    res.set('Accept-Ranges', 'bytes');
+
+    // Stream the audio
+    const buffer = await response.arrayBuffer();
+    res.send(Buffer.from(buffer));
+  } catch (error) {
+    console.error('Audio proxy error:', error);
+    res.status(500).json({ error: 'Failed to proxy audio' });
+  }
+});
+
 // Health check endpoint
 app.get('/api/health', (req, res) => {
   res.json({
