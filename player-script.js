@@ -55,6 +55,9 @@ if (!audioUrl) {
         const duration = parseFloat(durationParam);
         durationEl.textContent = formatTime(duration);
         recordingDate.textContent = `Duration: ${formatTime(duration)}`;
+    } else {
+        // No duration available, show friendly message
+        recordingDate.textContent = 'Click play to start';
     }
 
     // Generate waveform bars
