@@ -413,13 +413,38 @@ function closePlayerModal() {
 }
 
 /**
+ * Generate player URL from S3 URL
+ */
+function generatePlayerUrl(s3Url, title = null, transcription = null) {
+  const baseUrl = window.location.origin;
+  const params = new URLSearchParams();
+
+  params.append('url', s3Url);
+
+  if (title) {
+    params.append('title', title);
+  }
+
+  if (transcription) {
+    params.append('transcription', transcription);
+  }
+
+  return `${baseUrl}/player.html?${params.toString()}`;
+}
+
+/**
  * Copy share link to clipboard
  */
 async function copyShareLink(url) {
-  const success = await S3Uploader.copyToClipboard(url);
+  // Generate pretty player URL instead of raw S3 link
+  const filename = url.split('/').pop().split('?')[0];
+  const title = filename.replace(/\.[^/.]+$/, '').replace(/_/g, ' ').replace(/-/g, ' ');
+  const playerUrl = generatePlayerUrl(url, title, currentTranscription);
+
+  const success = await S3Uploader.copyToClipboard(playerUrl);
 
   if (success) {
-    showToast('Link copied to clipboard!', 'success');
+    showToast('Player link copied to clipboard!', 'success');
   } else {
     showToast('Failed to copy link', 'error');
   }
