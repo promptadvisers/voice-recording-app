@@ -108,13 +108,16 @@ audio.addEventListener('timeupdate', () => {
 // Set duration when metadata loads
 audio.addEventListener('loadedmetadata', () => {
     const duration = audio.duration;
-    if (isNaN(duration) || !isFinite(duration)) {
-        // Metadata not available, try to get it from playing
-        durationEl.textContent = '--:--';
-        recordingDate.textContent = 'Loading...';
-    } else {
-        durationEl.textContent = formatTime(duration);
-        recordingDate.textContent = `Duration: ${formatTime(duration)}`;
+    // Only update if we don't already have duration from URL params
+    if (!durationParam || durationEl.textContent === 'Loading...' || durationEl.textContent === '--:--') {
+        if (isNaN(duration) || !isFinite(duration)) {
+            // Metadata not available, try to get it from playing
+            durationEl.textContent = '--:--';
+            recordingDate.textContent = 'Loading...';
+        } else {
+            durationEl.textContent = formatTime(duration);
+            recordingDate.textContent = `Duration: ${formatTime(duration)}`;
+        }
     }
 });
 
