@@ -444,8 +444,16 @@ async function copyShareLink(url) {
   const filename = url.split('/').pop().split('?')[0];
   const title = filename.replace(/\.[^/.]+$/, '').replace(/_/g, ' ').replace(/-/g, ' ');
 
-  // Try to get duration from the audio element if it's playing
-  const duration = currentRecordingUrl === url && audioElement && audioElement.duration ? audioElement.duration : null;
+  // Try to get duration from the audio player if available
+  let duration = null;
+  try {
+    const audioElement = document.getElementById('audioPlayer');
+    if (currentRecordingUrl === url && audioElement && audioElement.duration && !isNaN(audioElement.duration) && isFinite(audioElement.duration)) {
+      duration = audioElement.duration;
+    }
+  } catch (e) {
+    console.log('Could not get duration:', e);
+  }
 
   const playerUrl = generatePlayerUrl(url, title, currentTranscription, duration);
 
