@@ -64,10 +64,44 @@ const AUDIO_ENHANCEMENT_ENABLED = process.env.ENABLE_AUDIO_ENHANCEMENT === 'true
 const AUDIO_ENHANCEMENT_SCRIPT = process.env.AUDIO_ENHANCEMENT_SCRIPT || path.join(__dirname, 'scripts', 'enhance_audio.py');
 const AUDIO_ENHANCEMENT_OUTPUT_SUFFIX = process.env.AUDIO_ENHANCEMENT_OUTPUT_SUFFIX || '-enhanced';
 
-// Read AWS credentials from CSV file
+// Read AWS credentials from CSV file or environment variables
 function loadAWSCredentials() {
   try {
+    // First, try to load from environment variables (Vercel, production)
+    if (process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY) {
+      console.log('✓ Using AWS credentials from environment variables');
+
+      s3Client = new S3Client({
+        region: process.env.AWS_REGION || REGION,
+        credentials: {
+          accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+          secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
+        }
+      });
+
+      awsCredentials = {
+        accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
+      };
+
+      if (!process.env.AWS_REGION) {
+        process.env.AWS_REGION = REGION;
+      }
+      if (!process.env.AWS_DEFAULT_REGION) {
+        process.env.AWS_DEFAULT_REGION = REGION;
+      }
+
+      console.log('✓ AWS credentials loaded successfully from environment');
+      return true;
+    }
+
+    // Fall back to CSV file (local development)
     const csvPath = path.join(__dirname, 'voice-recording-api-user_accessKeys.csv');
+
+    if (!fs.existsSync(csvPath)) {
+      throw new Error('AWS credentials not found in environment variables or CSV file');
+    }
+
     const csvContent = fs.readFileSync(csvPath, 'utf-8');
 
     // Remove BOM if present
@@ -114,7 +148,7 @@ function loadAWSCredentials() {
       process.env.AWS_DEFAULT_REGION = REGION;
     }
 
-    console.log('✓ AWS credentials loaded successfully');
+    console.log('✓ AWS credentials loaded successfully from CSV');
     return true;
   } catch (error) {
     console.error('Error loading AWS credentials:', error.message);
@@ -123,9 +157,13 @@ function loadAWSCredentials() {
 }
 
 // Initialize AWS on startup
-if (!loadAWSCredentials()) {
+// In serverless environments (Vercel), we still try to initialize but don't exit
+const awsInitialized = loadAWSCredentials();
+if (!awsInitialized && !process.env.VERCEL) {
   console.error('Failed to load AWS credentials. Server will not start.');
   process.exit(1);
+} else if (!awsInitialized && process.env.VERCEL) {
+  console.error('⚠️  AWS credentials not configured. Please set AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY in Vercel environment variables.');
 }
 
 // Utility function to sanitize filenames

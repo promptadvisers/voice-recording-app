@@ -20,6 +20,10 @@ aws-credentials.json
 .env.test
 !.env.example
 
+# Deployment credentials and setup files
+ADD_ENV_VARS.md
+!VERCEL_SETUP.md
+
 # Operating System
 .DS_Store
 .DS_Store?
