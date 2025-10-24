@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Voice Recording</title>
+    <meta property="og:title" content="Voice Recording">
+    <meta property="og:description" content="Listen to this voice recording">
+    <meta property="og:type" content="audio">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+        }
+
+        .player-container {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 24px;
+            padding: 40px;
+            max-width: 500px;
+            width: 100%;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        }
+
+        .player-header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .player-header h1 {
+            font-size: 24px;
+            color: #1a1a1a;
+            margin-bottom: 8px;
+            font-weight: 600;
+        }
+
+        .player-header p {
+            color: #666;
+            font-size: 14px;
+        }
+
+        .waveform {
+            height: 80px;
+            background: #f5f5f5;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .waveform-bars {
+            display: flex;
+            align-items: center;
+            gap: 3px;
+            height: 100%;
+            padding: 10px;
+        }
+
+        .waveform-bar {
+            flex: 1;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 2px;
+            min-width: 2px;
+            transition: all 0.3s ease;
+        }
+
+        .waveform-bar.playing {
+            background: linear-gradient(135deg, #48bb78 0%, #38a169 100%);
+        }
+
+        .controls {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .playback-controls {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 20px;
+        }
+
+        .play-button {
+            width: 64px;
+            height: 64px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            color: white;
+            font-size: 24px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        .play-button:hover {
+            transform: scale(1.05);
+            box-shadow: 0 6px 16px rgba(102, 126, 234, 0.5);
+        }
+
+        .play-button:active {
+            transform: scale(0.95);
+        }
+
+        .time-display {
+            display: flex;
+            justify-content: space-between;
+            font-size: 12px;
+            color: #666;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 6px;
+            background: #e0e0e0;
+            border-radius: 3px;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 3px;
+            width: 0%;
+            transition: width 0.1s linear;
+        }
+
+        .speed-controls {
+            display: flex;
+            gap: 8px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .speed-button {
+            padding: 8px 16px;
+            border: 2px solid #e0e0e0;
+            background: white;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 600;
+            color: #666;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .speed-button:hover {
+            border-color: #667eea;
+            color: #667eea;
+        }
+
+        .speed-button.active {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-color: #667eea;
+            color: white;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 12px;
+            margin-top: 10px;
+        }
+
+        .action-button {
+            flex: 1;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 12px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .download-button {
+            background: #f7fafc;
+            color: #2d3748;
+        }
+
+        .download-button:hover {
+            background: #edf2f7;
+        }
+
+        .share-button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .share-button:hover {
+            opacity: 0.9;
+        }
+
+        .transcription {
+            margin-top: 30px;
+            padding: 20px;
+            background: #f7fafc;
+            border-radius: 12px;
+            display: none;
+        }
+
+        .transcription.visible {
+            display: block;
+        }
+
+        .transcription h3 {
+            font-size: 14px;
+            color: #2d3748;
+            margin-bottom: 12px;
+            font-weight: 600;
+        }
+
+        .transcription p {
+            color: #4a5568;
+            line-height: 1.6;
+            font-size: 14px;
+        }
+
+        .loading {
+            text-align: center;
+            color: #666;
+            font-size: 14px;
+        }
+
+        .error {
+            text-align: center;
+            color: #e53e3e;
+            font-size: 14px;
+            padding: 20px;
+        }
+
+        @media (max-width: 480px) {
+            .player-container {
+                padding: 24px;
+            }
+
+            .player-header h1 {
+                font-size: 20px;
+            }
+
+            .action-buttons {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="player-container">
+        <div class="player-header">
+            <h1 id="recording-title">Voice Recording</h1>
+            <p id="recording-date">Loading...</p>
+        </div>
+
+        <div class="waveform" id="waveform">
+            <div class="waveform-bars" id="waveform-bars">
+                <!-- Waveform bars will be generated here -->
+            </div>
+        </div>
+
+        <div class="controls">
+            <div class="playback-controls">
+                <button class="play-button" id="play-button">
+                    <span id="play-icon">▶</span>
+                </button>
+            </div>
+
+            <div class="progress-bar" id="progress-bar">
+                <div class="progress-fill" id="progress-fill"></div>
+            </div>
+
+            <div class="time-display">
+                <span id="current-time">0:00</span>
+                <span id="duration">0:00</span>
+            </div>
+
+            <div class="speed-controls">
+                <button class="speed-button" data-speed="0.5">0.5x</button>
+                <button class="speed-button" data-speed="0.75">0.75x</button>
+                <button class="speed-button active" data-speed="1">1x</button>
+                <button class="speed-button" data-speed="1.25">1.25x</button>
+                <button class="speed-button" data-speed="1.5">1.5x</button>
+                <button class="speed-button" data-speed="2">2x</button>
+            </div>
+
+            <div class="action-buttons">
+                <button class="action-button download-button" id="download-button">
+                    ⬇ Download
+                </button>
+                <button class="action-button share-button" id="share-button">
+                    📤 Share
+                </button>
+            </div>
+        </div>
+
+        <div class="transcription" id="transcription">
+            <h3>Transcription</h3>
+            <p id="transcription-text"></p>
+        </div>
+    </div>
+
+    <audio id="audio" preload="metadata"></audio>
+
+    <script src="/player-script.js"></script>
+</body>
+</html>
