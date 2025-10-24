@@ -580,13 +580,18 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-// Start server
-app.listen(PORT, () => {
-  console.log(`\n🎙️  Voice Recording App Server`);
-  console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
-  console.log(`🌐 Server running at: http://localhost:${PORT}`);
-  console.log(`📦 S3 Bucket: ${BUCKET_NAME}`);
-  console.log(`🌍 Region: ${REGION}`);
-  console.log(`✓ Ready to accept requests`);
-  console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`);
-});
+// Start server (only in non-serverless environments)
+if (process.env.NODE_ENV !== 'production' || !process.env.VERCEL) {
+  app.listen(PORT, () => {
+    console.log(`\n🎙️  Voice Recording App Server`);
+    console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
+    console.log(`🌐 Server running at: http://localhost:${PORT}`);
+    console.log(`📦 S3 Bucket: ${BUCKET_NAME}`);
+    console.log(`🌍 Region: ${REGION}`);
+    console.log(`✓ Ready to accept requests`);
+    console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`);
+  });
+}
+
+// Export for Vercel serverless
+module.exports = app;
