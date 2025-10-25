@@ -229,10 +229,13 @@
 
             const { uploadUrl, key } = await uploadResponse.json();
 
-            // Upload to S3
+            // Upload to S3 with public-read ACL for replies
             const uploadS3Response = await fetch(uploadUrl, {
                 method: 'PUT',
-                headers: { 'Content-Type': 'audio/webm' },
+                headers: {
+                    'Content-Type': 'audio/webm',
+                    'x-amz-acl': 'public-read'
+                },
                 body: blob
             });
 

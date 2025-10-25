@@ -351,7 +351,8 @@ app.post('/api/get-upload-url', async (req, res) => {
     const command = new PutObjectCommand({
       Bucket: BUCKET_NAME,
       Key: key,
-      ContentType: contentType || 'audio/webm'
+      ContentType: contentType || 'audio/webm',
+      ACL: 'public-read' // Make replies publicly accessible
     });
 
     const uploadUrl = await getSignedUrl(s3Client, command, { expiresIn: 900 }); // 15 minutes
