@@ -8,6 +8,26 @@ const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
 const rateLimit = require('express-rate-limit');
 const OpenAI = require('openai');
 const { spawn } = require('child_process');
+const Redis = require('ioredis');
+const { generateSecureShortId, isValidShortId, isLegacyFormat } = require('./utils/short-id');
+
+// Initialize Redis client
+let redis = null;
+if (process.env.KV_REDIS_URL) {
+  redis = new Redis(process.env.KV_REDIS_URL, {
+    maxRetriesPerRequest: 3,
+    enableReadyCheck: true,
+    lazyConnect: true
+  });
+
+  redis.on('error', (err) => {
+    console.error('Redis connection error:', err);
+  });
+
+  redis.on('connect', () => {
+    console.log('✓ Connected to Redis');
+  });
+}
 
 // Load environment variables from .env file if it exists
 if (fs.existsSync('.env')) {
@@ -690,7 +710,7 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-// Create short share link
+// Create short share link (Database-backed URL shortener)
 app.post('/api/create-share-link', async (req, res) => {
   try {
     const { url, title, transcription, duration } = req.body;
@@ -699,31 +719,48 @@ app.post('/api/create-share-link', async (req, res) => {
       return res.status(400).json({ error: 'URL is required' });
     }
 
-    // Create a compact data object
-    const data = {
-      u: url,
-      t: title || undefined,
-      tr: transcription || undefined,
-      d: duration || undefined
+    // Check if Redis is available
+    if (!redis) {
+      return res.status(503).json({ error: 'URL shortening service unavailable' });
+    }
+
+    // Generate a short random ID (6 characters = 56.8 billion combinations)
+    let shortId = generateSecureShortId(6);
+
+    // Extremely unlikely, but check for collision and regenerate if needed
+    let attempts = 0;
+    while (await redis.exists(`link:${shortId}`) && attempts < 5) {
+      shortId = generateSecureShortId(6);
+      attempts++;
+    }
+
+    if (attempts >= 5) {
+      // If we somehow hit 5 collisions, use a longer ID
+      shortId = generateSecureShortId(8);
+    }
+
+    // Store link data in Redis with 1 year expiration
+    const linkData = {
+      url,
+      title: title || null,
+      transcription: transcription || null,
+      duration: duration || null,
+      created: new Date().toISOString(),
+      clicks: 0
     };
 
-    // Remove undefined values
-    Object.keys(data).forEach(key => data[key] === undefined && delete data[key]);
-
-    // Encode to base64
-    const encoded = Buffer.from(JSON.stringify(data)).toString('base64')
-      .replace(/\+/g, '-')
-      .replace(/\//g, '_')
-      .replace(/=/g, '');
+    // Store in Redis with 1 year TTL (31536000 seconds)
+    await redis.setex(`link:${shortId}`, 31536000, JSON.stringify(linkData));
 
     // Return the short URL
     const origin = req.headers.origin || req.headers.host || req.protocol + '://' + req.get('host');
     const baseUrl = origin.startsWith('http') ? origin : `https://${origin}`;
-    const shortUrl = `${baseUrl}/s/${encoded}`;
+    const shortUrl = `${baseUrl}/s/${shortId}`;
 
     res.status(200).json({
       shortUrl,
-      hash: encoded
+      hash: shortId,
+      length: shortUrl.length
     });
   } catch (error) {
     console.error('Error creating share link:', error);
@@ -731,7 +768,7 @@ app.post('/api/create-share-link', async (req, res) => {
   }
 });
 
-// Get share link data
+// Get share link data (with backward compatibility)
 app.get('/api/get-share-link', async (req, res) => {
   try {
     const { hash } = req.query;
@@ -740,29 +777,66 @@ app.get('/api/get-share-link', async (req, res) => {
       return res.status(400).json({ error: 'Hash is required' });
     }
 
-    // Decode from base64
-    const base64 = hash
-      .replace(/-/g, '+')
-      .replace(/_/g, '/');
+    // Check if this is a new short ID format
+    if (isValidShortId(hash)) {
+      // New database-backed format
+      if (!redis) {
+        return res.status(503).json({ error: 'URL shortening service unavailable' });
+      }
 
-    // Add padding if needed
-    const padded = base64 + '='.repeat((4 - base64.length % 4) % 4);
+      const linkData = await redis.get(`link:${hash}`);
 
-    const decoded = Buffer.from(padded, 'base64').toString('utf-8');
-    const data = JSON.parse(decoded);
+      if (!linkData) {
+        return res.status(404).json({ error: 'Link not found or expired' });
+      }
 
-    // Convert back to full format
-    const result = {
-      url: data.u,
-      title: data.t || null,
-      transcription: data.tr || null,
-      duration: data.d || null
-    };
+      // Parse the stored data
+      const data = typeof linkData === 'string' ? JSON.parse(linkData) : linkData;
 
-    res.status(200).json(result);
+      // Increment click counter (async, don't wait)
+      redis.incr(`link:${hash}:clicks`).catch(err => console.error('Failed to increment clicks:', err));
+
+      // Return the data
+      res.status(200).json({
+        url: data.url,
+        title: data.title || null,
+        transcription: data.transcription || null,
+        duration: data.duration || null
+      });
+
+    } else if (isLegacyFormat(hash)) {
+      // Old base64 encoded format - maintain backward compatibility
+      try {
+        const base64 = hash
+          .replace(/-/g, '+')
+          .replace(/_/g, '/');
+
+        // Add padding if needed
+        const padded = base64 + '='.repeat((4 - base64.length % 4) % 4);
+
+        const decoded = Buffer.from(padded, 'base64').toString('utf-8');
+        const data = JSON.parse(decoded);
+
+        // Convert back to full format
+        const result = {
+          url: data.u,
+          title: data.t || null,
+          transcription: data.tr || null,
+          duration: data.d || null
+        };
+
+        res.status(200).json(result);
+      } catch (decodeError) {
+        console.error('Error decoding legacy link:', decodeError);
+        return res.status(400).json({ error: 'Invalid legacy link format' });
+      }
+    } else {
+      return res.status(400).json({ error: 'Invalid link format' });
+    }
+
   } catch (error) {
     console.error('Error retrieving share link:', error);
-    res.status(400).json({ error: 'Invalid or corrupted share link' });
+    res.status(500).json({ error: 'Failed to retrieve share link' });
   }
 });
 
