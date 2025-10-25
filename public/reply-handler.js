@@ -277,6 +277,28 @@
                         // Continue anyway - transcription is optional
                     }
 
+                    // Create share link for the reply
+                    let replyShareUrl = s3Url; // Fallback to S3 URL
+                    try {
+                        const shareResponse = await fetch('/api/create-share-link', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                url: s3Url,
+                                title: 'Reply to: ' + (document.getElementById('recording-title').textContent || 'Recording'),
+                                transcription: transcriptionText || null,
+                                duration: Math.round(duration * 10) / 10
+                            })
+                        });
+
+                        if (shareResponse.ok) {
+                            const { shortUrl } = await shareResponse.json();
+                            replyShareUrl = shortUrl;
+                        }
+                    } catch (shareError) {
+                        console.warn('Failed to create share link for reply:', shareError);
+                    }
+
                     // Send webhook notification
                     const originalTitle = document.getElementById('recording-title').textContent;
                     const originalUrl = window.audioUrl || '';
@@ -293,7 +315,8 @@
                                 hash: originalHash || ''
                             },
                             reply: {
-                                url: s3Url,
+                                url: replyShareUrl, // Use share link instead of S3 URL
+                                s3_url: s3Url, // Keep S3 URL for reference
                                 transcription: transcriptionText,
                                 duration: Math.round(duration * 10) / 10,
                                 timestamp: new Date().toISOString()
