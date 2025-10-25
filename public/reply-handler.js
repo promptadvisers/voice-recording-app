@@ -195,11 +195,20 @@
             const blob = new Blob(recordedChunks, { type: 'audio/webm' });
 
             // Get original recording info
-            const originalHash = window.location.pathname.includes('/s/')
+            let originalHash = window.location.pathname.includes('/s/')
                 ? window.location.pathname.split('/s/')[1]
                 : new URLSearchParams(window.location.search).get('url');
 
-            // Generate filename
+            // Sanitize the hash - if it's a URL, create a hash from it
+            if (originalHash && (originalHash.includes('http') || originalHash.includes('/'))) {
+                // Create a simple hash from the URL
+                originalHash = Array.from(originalHash)
+                    .reduce((hash, char) => ((hash << 5) - hash) + char.charCodeAt(0), 0)
+                    .toString(36)
+                    .replace('-', '');
+            }
+
+            // Generate filename with sanitized hash
             const timestamp = Date.now();
             const filename = `reply-to-${originalHash || timestamp}-${timestamp}.webm`;
 
