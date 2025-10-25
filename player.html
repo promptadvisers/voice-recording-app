@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Voice Recording</title>
     <meta property="og:title" content="Voice Recording">
     <meta property="og:description" content="Listen to this voice recording">
@@ -17,11 +17,13 @@
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
             min-height: 100vh;
+            min-height: -webkit-fill-available;
             display: flex;
             align-items: center;
             justify-content: center;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #1a73e8 0%, #0d47a1 100%);
             padding: 20px;
+            padding: max(20px, env(safe-area-inset-top)) max(20px, env(safe-area-inset-right)) max(20px, env(safe-area-inset-bottom)) max(20px, env(safe-area-inset-left));
         }
 
         .player-container {
@@ -73,14 +75,14 @@
 
         .waveform-bar {
             flex: 1;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #1a73e8 0%, #0d47a1 100%);
             border-radius: 2px;
             min-width: 2px;
             transition: all 0.3s ease;
         }
 
         .waveform-bar.playing {
-            background: linear-gradient(135deg, #48bb78 0%, #38a169 100%);
+            background: linear-gradient(135deg, #4285f4 0%, #1a73e8 100%);
         }
 
         .controls {
@@ -100,7 +102,7 @@
             width: 64px;
             height: 64px;
             border-radius: 50%;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #1a73e8 0%, #0d47a1 100%);
             border: none;
             color: white;
             font-size: 24px;
@@ -109,12 +111,12 @@
             align-items: center;
             justify-content: center;
             transition: all 0.3s ease;
-            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+            box-shadow: 0 4px 12px rgba(26, 115, 232, 0.4);
         }
 
         .play-button:hover {
             transform: scale(1.05);
-            box-shadow: 0 6px 16px rgba(102, 126, 234, 0.5);
+            box-shadow: 0 6px 16px rgba(26, 115, 232, 0.5);
         }
 
         .play-button:active {
@@ -141,7 +143,7 @@
 
         .progress-fill {
             height: 100%;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #1a73e8 0%, #0d47a1 100%);
             border-radius: 3px;
             width: 0%;
             transition: width 0.1s linear;
@@ -167,13 +169,13 @@
         }
 
         .speed-button:hover {
-            border-color: #667eea;
-            color: #667eea;
+            border-color: #1a73e8;
+            color: #1a73e8;
         }
 
         .speed-button.active {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            border-color: #667eea;
+            background: linear-gradient(135deg, #1a73e8 0%, #0d47a1 100%);
+            border-color: #1a73e8;
             color: white;
         }
 
@@ -208,7 +210,7 @@
         }
 
         .share-button {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #1a73e8 0%, #0d47a1 100%);
             color: white;
         }
 
@@ -267,13 +269,197 @@
                 flex-direction: column;
             }
         }
+
+        /* Reply Button */
+        .reply-button {
+            width: 100%;
+            padding: 16px;
+            margin-top: 20px;
+            background: linear-gradient(135deg, #1a73e8 0%, #0d47a1 100%);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .reply-button:hover {
+            opacity: 0.9;
+            transform: translateY(-1px);
+        }
+
+        /* Reply Modal */
+        .reply-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 10000;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .reply-modal.active {
+            display: flex;
+        }
+
+        .reply-modal-content {
+            background: white;
+            border-radius: 24px;
+            padding: 40px;
+            max-width: 500px;
+            width: 100%;
+            position: relative;
+        }
+
+        .reply-close {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: none;
+            border: none;
+            font-size: 32px;
+            color: #666;
+            cursor: pointer;
+            line-height: 1;
+        }
+
+        .reply-modal h2 {
+            margin: 0 0 30px 0;
+            font-size: 20px;
+            color: #1a1a1a;
+            text-align: center;
+        }
+
+        .reply-recorder {
+            text-align: center;
+        }
+
+        .reply-time {
+            font-size: 48px;
+            font-weight: 600;
+            color: #1a73e8;
+            margin-bottom: 20px;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .reply-waveform {
+            height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+            margin-bottom: 30px;
+        }
+
+        .reply-waveform-bar {
+            width: 4px;
+            background: #1a73e8;
+            border-radius: 2px;
+            transition: height 0.1s ease;
+        }
+
+        .reply-record-btn {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #1a73e8 0%, #0d47a1 100%);
+            border: none;
+            color: white;
+            font-size: 32px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 20px;
+        }
+
+        .reply-record-btn:hover {
+            transform: scale(1.05);
+        }
+
+        .reply-record-btn.recording {
+            background: #e53e3e;
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(229, 62, 62, 0.7); }
+            50% { box-shadow: 0 0 0 15px rgba(229, 62, 62, 0); }
+        }
+
+        .reply-hint {
+            color: #666;
+            font-size: 14px;
+            margin: 0;
+        }
+
+        .reply-actions {
+            display: flex;
+            gap: 12px;
+            margin-top: 30px;
+        }
+
+        .reply-action-btn {
+            flex: 1;
+            padding: 14px 24px;
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .cancel-btn {
+            background: #f7fafc;
+            color: #2d3748;
+        }
+
+        .cancel-btn:hover {
+            background: #edf2f7;
+        }
+
+        .send-btn {
+            background: linear-gradient(135deg, #1a73e8 0%, #0d47a1 100%);
+            color: white;
+        }
+
+        .send-btn:hover {
+            opacity: 0.9;
+        }
+
+        .reply-status {
+            text-align: center;
+            margin-top: 20px;
+            font-size: 14px;
+            color: #666;
+            min-height: 20px;
+        }
+
+        .reply-status.success {
+            color: #38a169;
+            font-weight: 600;
+        }
+
+        .reply-status.error {
+            color: #e53e3e;
+            font-weight: 600;
+        }
     </style>
 </head>
 <body>
     <div class="player-container">
         <div class="player-header">
             <h1 id="recording-title">Voice Recording</h1>
-            <p id="recording-date">Loading...</p>
+            <p id="recording-date">Click play to start</p>
         </div>
 
         <div class="waveform" id="waveform">
@@ -315,6 +501,11 @@
                     📤 Share
                 </button>
             </div>
+
+            <!-- Reply Button -->
+            <button class="reply-button" id="reply-button">
+                🎙️ Reply with Voice
+            </button>
         </div>
 
         <div class="transcription" id="transcription">
@@ -323,8 +514,34 @@
         </div>
     </div>
 
+    <!-- Reply Modal -->
+    <div class="reply-modal" id="reply-modal">
+        <div class="reply-modal-content">
+            <button class="reply-close" id="reply-close">×</button>
+
+            <h2 id="reply-title">Reply to: Loading...</h2>
+
+            <div class="reply-recorder">
+                <div class="reply-time" id="reply-time">00:00</div>
+                <div class="reply-waveform" id="reply-waveform"></div>
+                <button class="reply-record-btn" id="reply-record-btn">
+                    <span class="record-icon">⏺</span>
+                </button>
+                <p class="reply-hint" id="reply-hint">Click to start recording (max 3 minutes)</p>
+            </div>
+
+            <div class="reply-actions" id="reply-actions" style="display: none;">
+                <button class="reply-action-btn cancel-btn" id="reply-cancel">Re-record</button>
+                <button class="reply-action-btn send-btn" id="reply-send">Send Reply</button>
+            </div>
+
+            <div class="reply-status" id="reply-status"></div>
+        </div>
+    </div>
+
     <audio id="audio" preload="metadata" crossorigin="anonymous"></audio>
 
     <script src="/player-script.js"></script>
+    <script src="/reply-handler.js"></script>
 </body>
 </html>

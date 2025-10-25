@@ -1,0 +1,324 @@
+// Reply with Voice Feature
+// This handles recording and sending voice replies to recordings
+
+(function() {
+    // Get elements
+    const replyButton = document.getElementById('reply-button');
+    const replyModal = document.getElementById('reply-modal');
+    const replyClose = document.getElementById('reply-close');
+    const replyTitle = document.getElementById('reply-title');
+    const replyTime = document.getElementById('reply-time');
+    const replyWaveform = document.getElementById('reply-waveform');
+    const replyRecordBtn = document.getElementById('reply-record-btn');
+    const replyHint = document.getElementById('reply-hint');
+    const replyActions = document.getElementById('reply-actions');
+    const replyCancelBtn = document.getElementById('reply-cancel');
+    const replySendBtn = document.getElementById('reply-send');
+    const replyStatus = document.getElementById('reply-status');
+
+    // Recording state
+    let mediaRecorder = null;
+    let recordedChunks = [];
+    let recordingStartTime = 0;
+    let recordingInterval = null;
+    const MAX_RECORDING_TIME = 180; // 3 minutes in seconds
+    let lastReplyTime = 0;
+    const RATE_LIMIT_SECONDS = 5;
+
+    // Generate waveform bars
+    function generateReplyWaveform() {
+        replyWaveform.innerHTML = '';
+        for (let i = 0; i < 30; i++) {
+            const bar = document.createElement('div');
+            bar.className = 'reply-waveform-bar';
+            bar.style.height = '20px';
+            replyWaveform.appendChild(bar);
+        }
+    }
+
+    // Animate waveform during recording
+    function animateReplyWaveform() {
+        const bars = replyWaveform.querySelectorAll('.reply-waveform-bar');
+        bars.forEach((bar, index) => {
+            setInterval(() => {
+                if (mediaRecorder && mediaRecorder.state === 'recording') {
+                    const height = Math.random() * 50 + 10;
+                    bar.style.height = `${height}px`;
+                }
+            }, 150 + index * 10);
+        });
+    }
+
+    // Format time MM:SS
+    function formatReplyTime(seconds) {
+        const mins = Math.floor(seconds / 60);
+        const secs = seconds % 60;
+        return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    }
+
+    // Open reply modal
+    function openReplyModal() {
+        // Check rate limiting
+        const now = Date.now();
+        if (lastReplyTime && (now - lastReplyTime) / 1000 < RATE_LIMIT_SECONDS) {
+            const remaining = Math.ceil(RATE_LIMIT_SECONDS - (now - lastReplyTime) / 1000);
+            alert(`Please wait ${remaining} seconds before sending another reply.`);
+            return;
+        }
+
+        // Set the title to show what they're replying to
+        const recordingTitleText = document.getElementById('recording-title').textContent;
+        replyTitle.textContent = `Reply to: ${recordingTitleText}`;
+
+        // Reset state
+        recordedChunks = [];
+        replyTime.textContent = '00:00';
+        replyStatus.textContent = '';
+        replyStatus.className = 'reply-status';
+        replyActions.style.display = 'none';
+        replyHint.textContent = 'Click to start recording (max 3 minutes)';
+        replyRecordBtn.classList.remove('recording');
+
+        // Generate waveform
+        generateReplyWaveform();
+
+        // Show modal
+        replyModal.classList.add('active');
+    }
+
+    // Close reply modal
+    function closeReplyModal() {
+        if (mediaRecorder && mediaRecorder.state === 'recording') {
+            mediaRecorder.stop();
+        }
+        if (recordingInterval) {
+            clearInterval(recordingInterval);
+        }
+        replyModal.classList.remove('active');
+    }
+
+    // Start recording
+    async function startRecording() {
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            mediaRecorder = new MediaRecorder(stream, {
+                mimeType: 'audio/webm'
+            });
+
+            recordedChunks = [];
+            recordingStartTime = Date.now();
+
+            mediaRecorder.addEventListener('dataavailable', (e) => {
+                if (e.data.size > 0) {
+                    recordedChunks.push(e.data);
+                }
+            });
+
+            mediaRecorder.addEventListener('stop', () => {
+                stream.getTracks().forEach(track => track.stop());
+                replyActions.style.display = 'flex';
+                replyHint.textContent = 'Recording complete! Send your reply or re-record';
+            });
+
+            mediaRecorder.start();
+            replyRecordBtn.classList.add('recording');
+            replyHint.textContent = 'Recording... Click to stop';
+
+            // Animate waveform
+            animateReplyWaveform();
+
+            // Update timer
+            let elapsedSeconds = 0;
+            recordingInterval = setInterval(() => {
+                elapsedSeconds++;
+                replyTime.textContent = formatReplyTime(elapsedSeconds);
+
+                // Stop at max time
+                if (elapsedSeconds >= MAX_RECORDING_TIME) {
+                    stopRecording();
+                }
+            }, 1000);
+
+        } catch (err) {
+            console.error('Error accessing microphone:', err);
+            replyStatus.textContent = 'Could not access microphone. Please allow microphone access.';
+            replyStatus.className = 'reply-status error';
+        }
+    }
+
+    // Stop recording
+    function stopRecording() {
+        if (mediaRecorder && mediaRecorder.state === 'recording') {
+            mediaRecorder.stop();
+            replyRecordBtn.classList.remove('recording');
+            if (recordingInterval) {
+                clearInterval(recordingInterval);
+            }
+        }
+    }
+
+    // Handle record button click
+    replyRecordBtn.addEventListener('click', () => {
+        if (!mediaRecorder || mediaRecorder.state === 'inactive') {
+            startRecording();
+        } else if (mediaRecorder.state === 'recording') {
+            stopRecording();
+        }
+    });
+
+    // Cancel/re-record
+    replyCancelBtn.addEventListener('click', () => {
+        recordedChunks = [];
+        replyTime.textContent = '00:00';
+        replyActions.style.display = 'none';
+        replyStatus.textContent = '';
+        replyStatus.className = 'reply-status';
+        replyHint.textContent = 'Click to start recording (max 3 minutes)';
+        generateReplyWaveform();
+    });
+
+    // Send reply
+    replySendBtn.addEventListener('click', async () => {
+        if (recordedChunks.length === 0) {
+            replyStatus.textContent = 'No recording to send';
+            replyStatus.className = 'reply-status error';
+            return;
+        }
+
+        try {
+            replyStatus.textContent = 'Sending your reply...';
+            replyStatus.className = 'reply-status';
+            replySendBtn.disabled = true;
+            replyCancelBtn.disabled = true;
+
+            // Create blob from recorded chunks
+            const blob = new Blob(recordedChunks, { type: 'audio/webm' });
+
+            // Get original recording info
+            const originalHash = window.location.pathname.includes('/s/')
+                ? window.location.pathname.split('/s/')[1]
+                : new URLSearchParams(window.location.search).get('url');
+
+            // Generate filename
+            const timestamp = Date.now();
+            const filename = `reply-to-${originalHash || timestamp}-${timestamp}.webm`;
+
+            // Get upload URL from server
+            const uploadResponse = await fetch('/api/get-upload-url', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    filename,
+                    contentType: 'audio/webm',
+                    folder: 'replies'
+                })
+            });
+
+            if (!uploadResponse.ok) {
+                throw new Error('Failed to get upload URL');
+            }
+
+            const { uploadUrl, key } = await uploadResponse.json();
+
+            // Upload to S3
+            const uploadS3Response = await fetch(uploadUrl, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'audio/webm' },
+                body: blob
+            });
+
+            if (!uploadS3Response.ok) {
+                throw new Error('Failed to upload recording');
+            }
+
+            // Get S3 URL
+            const s3Url = uploadUrl.split('?')[0];
+
+            // Get duration
+            const duration = (Date.now() - recordingStartTime) / 1000;
+
+            // Show success immediately - don't make user wait
+            lastReplyTime = Date.now();
+            replyStatus.textContent = '✓ Your reply has been sent to Mark!';
+            replyStatus.className = 'reply-status success';
+            replySendBtn.style.display = 'none';
+            replyCancelBtn.textContent = 'Close';
+            replyCancelBtn.disabled = false;
+            replyCancelBtn.onclick = closeReplyModal;
+
+            // Continue processing in background (transcription + webhook)
+            // User doesn't need to wait for this
+            (async () => {
+                try {
+                    // Transcribe in background
+                    let transcriptionText = '';
+                    try {
+                        const transcriptionResponse = await fetch('/api/transcribe', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ audioUrl: s3Url })
+                        });
+
+                        if (transcriptionResponse.ok) {
+                            const transcriptionData = await transcriptionResponse.json();
+                            transcriptionText = transcriptionData.transcription || '';
+                        }
+                    } catch (transcriptionError) {
+                        console.warn('Transcription failed, sending without transcription:', transcriptionError);
+                        // Continue anyway - transcription is optional
+                    }
+
+                    // Send webhook notification
+                    const originalTitle = document.getElementById('recording-title').textContent;
+                    const originalUrl = window.audioUrl || '';
+
+                    await fetch('https://promptadvisers.app.n8n.cloud/webhook/data-cleanup', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            event_type: 'voice_reply',
+                            timestamp: new Date().toISOString(),
+                            original_recording: {
+                                title: originalTitle,
+                                url: originalUrl,
+                                hash: originalHash || ''
+                            },
+                            reply: {
+                                url: s3Url,
+                                transcription: transcriptionText,
+                                duration: Math.round(duration * 10) / 10,
+                                timestamp: new Date().toISOString()
+                            }
+                        }),
+                        mode: 'no-cors'
+                    });
+                } catch (backgroundError) {
+                    console.error('Background processing error:', backgroundError);
+                    // User already saw success, so don't show error
+                }
+            })();
+
+        } catch (error) {
+            console.error('Error sending reply:', error);
+            replyStatus.textContent = 'Failed to send reply. Please try again.';
+            replyStatus.className = 'reply-status error';
+            replySendBtn.disabled = false;
+            replyCancelBtn.disabled = false;
+        }
+    });
+
+    // Event listeners
+    if (replyButton) {
+        replyButton.addEventListener('click', openReplyModal);
+    }
+    if (replyClose) {
+        replyClose.addEventListener('click', closeReplyModal);
+    }
+
+    // Close modal on outside click
+    replyModal.addEventListener('click', (e) => {
+        if (e.target === replyModal) {
+            closeReplyModal();
+        }
+    });
+})();

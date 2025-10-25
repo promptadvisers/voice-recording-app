@@ -332,7 +332,7 @@ function isValidAudioFile(filename) {
 // Generate presigned URL for upload
 app.post('/api/get-upload-url', async (req, res) => {
   try {
-    const { filename, contentType } = req.body;
+    const { filename, contentType, folder } = req.body;
 
     if (!filename) {
       return res.status(400).json({ error: 'Filename is required' });
@@ -343,7 +343,10 @@ app.post('/api/get-upload-url', async (req, res) => {
     }
 
     const sanitizedFilename = sanitizeFilename(filename);
-    const key = `uploads/${sanitizedFilename}`;
+
+    // Support both 'uploads' (default) and 'replies' folders
+    const folderPath = folder === 'replies' ? 'replies' : 'uploads';
+    const key = `${folderPath}/${sanitizedFilename}`;
 
     const command = new PutObjectCommand({
       Bucket: BUCKET_NAME,
@@ -353,10 +356,16 @@ app.post('/api/get-upload-url', async (req, res) => {
 
     const uploadUrl = await getSignedUrl(s3Client, command, { expiresIn: 900 }); // 15 minutes
 
+    // Generate public URL for replies
+    const publicUrl = folder === 'replies'
+      ? `https://${BUCKET_NAME}.s3.amazonaws.com/${key}`
+      : null;
+
     res.json({
       uploadUrl,
       key,
-      filename: sanitizedFilename
+      filename: sanitizedFilename,
+      publicUrl // Include public URL for replies
     });
   } catch (error) {
     console.error('Error generating upload URL:', error);
@@ -678,6 +687,82 @@ app.get('/api/health', (req, res) => {
       transcription: !!process.env.OPENAI_API_KEY
     }
   });
+});
+
+// Create short share link
+app.post('/api/create-share-link', async (req, res) => {
+  try {
+    const { url, title, transcription, duration } = req.body;
+
+    if (!url) {
+      return res.status(400).json({ error: 'URL is required' });
+    }
+
+    // Create a compact data object
+    const data = {
+      u: url,
+      t: title || undefined,
+      tr: transcription || undefined,
+      d: duration || undefined
+    };
+
+    // Remove undefined values
+    Object.keys(data).forEach(key => data[key] === undefined && delete data[key]);
+
+    // Encode to base64
+    const encoded = Buffer.from(JSON.stringify(data)).toString('base64')
+      .replace(/\+/g, '-')
+      .replace(/\//g, '_')
+      .replace(/=/g, '');
+
+    // Return the short URL
+    const origin = req.headers.origin || req.headers.host || req.protocol + '://' + req.get('host');
+    const baseUrl = origin.startsWith('http') ? origin : `https://${origin}`;
+    const shortUrl = `${baseUrl}/s/${encoded}`;
+
+    res.status(200).json({
+      shortUrl,
+      hash: encoded
+    });
+  } catch (error) {
+    console.error('Error creating share link:', error);
+    res.status(500).json({ error: 'Failed to create share link' });
+  }
+});
+
+// Get share link data
+app.get('/api/get-share-link', async (req, res) => {
+  try {
+    const { hash } = req.query;
+
+    if (!hash) {
+      return res.status(400).json({ error: 'Hash is required' });
+    }
+
+    // Decode from base64
+    const base64 = hash
+      .replace(/-/g, '+')
+      .replace(/_/g, '/');
+
+    // Add padding if needed
+    const padded = base64 + '='.repeat((4 - base64.length % 4) % 4);
+
+    const decoded = Buffer.from(padded, 'base64').toString('utf-8');
+    const data = JSON.parse(decoded);
+
+    // Convert back to full format
+    const result = {
+      url: data.u,
+      title: data.t || null,
+      transcription: data.tr || null,
+      duration: data.d || null
+    };
+
+    res.status(200).json(result);
+  } catch (error) {
+    console.error('Error retrieving share link:', error);
+    res.status(400).json({ error: 'Invalid or corrupted share link' });
+  }
 });
 
 // Start server (only in non-serverless environments)

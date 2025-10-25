@@ -9,11 +9,7 @@
       }
     },
     {
-      "src": "index.html",
-      "use": "@vercel/static"
-    },
-    {
-      "src": "*.{js,css,html}",
+      "src": "public/**",
       "use": "@vercel/static"
     }
   ],
@@ -23,12 +19,32 @@
       "dest": "/api/index.js"
     },
     {
-      "src": "/(.*\\.(js|css|html))",
-      "dest": "/$1"
+      "src": "/s/(.*)",
+      "dest": "/public/s.html"
+    },
+    {
+      "src": "/s$",
+      "dest": "/public/s.html"
+    },
+    {
+      "src": "/player.html",
+      "dest": "/public/player.html"
+    },
+    {
+      "src": "/player-script.js",
+      "dest": "/public/player-script.js"
+    },
+    {
+      "src": "/(.*\\.js)",
+      "dest": "/public/$1"
+    },
+    {
+      "src": "/(.*\\.css)",
+      "dest": "/public/$1"
     },
     {
       "src": "/",
-      "dest": "/index.html"
+      "dest": "/public/index.html"
     }
   ]
 }

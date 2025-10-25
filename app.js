@@ -415,23 +415,41 @@ function closePlayerModal() {
 /**
  * Generate player URL from S3 URL
  */
-function generatePlayerUrl(s3Url, title = null, transcription = null, duration = null) {
+async function generatePlayerUrl(s3Url, title = null, transcription = null, duration = null) {
   const baseUrl = window.location.origin;
+
+  try {
+    // Try to create a short URL
+    const response = await fetch('/api/create-share-link', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        url: s3Url,
+        title: title || null,
+        transcription: transcription || null,
+        duration: duration || null
+      })
+    });
+
+    if (response.ok) {
+      const { shortUrl } = await response.json();
+      return shortUrl;
+    }
+
+    // Fallback to long URL if short URL creation fails
+    console.warn('Short URL creation failed, using long URL');
+  } catch (error) {
+    console.warn('Error creating short URL, using long URL:', error);
+  }
+
+  // Fallback: generate traditional long URL
   const params = new URLSearchParams();
-
   params.append('url', s3Url);
-
-  if (title) {
-    params.append('title', title);
-  }
-
-  if (transcription) {
-    params.append('transcription', transcription);
-  }
-
-  if (duration && !isNaN(duration) && isFinite(duration)) {
-    params.append('duration', duration);
-  }
+  if (title) params.append('title', title);
+  if (transcription) params.append('transcription', transcription);
+  if (duration && !isNaN(duration) && isFinite(duration)) params.append('duration', duration);
 
   return `${baseUrl}/player.html?${params.toString()}`;
 }
@@ -455,7 +473,7 @@ async function copyShareLink(url) {
     console.log('Could not get duration:', e);
   }
 
-  const playerUrl = generatePlayerUrl(url, title, currentTranscription, duration);
+  const playerUrl = await generatePlayerUrl(url, title, currentTranscription, duration);
 
   const success = await S3Uploader.copyToClipboard(playerUrl);
 

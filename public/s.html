@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Loading...</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, #1a73e8 0%, #0d47a1 100%);
+            color: white;
+            margin: 0;
+            padding: 20px;
+        }
+        .loading {
+            text-align: center;
+        }
+        .spinner {
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-top: 3px solid white;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .error {
+            background: rgba(255, 255, 255, 0.95);
+            color: #e53e3e;
+            padding: 40px;
+            border-radius: 24px;
+            max-width: 500px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="loading" id="loading">
+        <div class="spinner"></div>
+        <p>Loading recording...</p>
+    </div>
+
+    <script>
+        // Get hash from URL path (e.g., /s/abc123 -> abc123)
+        const pathParts = window.location.pathname.split('/');
+        const hash = pathParts[pathParts.length - 1].replace('.html', '');
+
+        if (!hash || hash === 's') {
+            document.body.innerHTML = '<div class="error"><h1>Invalid Link</h1><p>This share link is not valid.</p></div>';
+        } else {
+            // Fetch the share link data
+            fetch(`/api/get-share-link?hash=${hash}`)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Share link not found');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    // Build player URL with parameters
+                    const playerUrl = new URL('/player.html', window.location.origin);
+                    playerUrl.searchParams.set('url', data.url);
+                    if (data.title) playerUrl.searchParams.set('title', data.title);
+                    if (data.transcription) playerUrl.searchParams.set('transcription', data.transcription);
+                    if (data.duration) playerUrl.searchParams.set('duration', data.duration);
+
+                    // Redirect to player
+                    window.location.href = playerUrl.toString();
+                })
+                .catch(error => {
+                    console.error('Error loading share link:', error);
+                    document.body.innerHTML = '<div class="error"><h1>Link Not Found</h1><p>This share link has expired or does not exist.</p></div>';
+                });
+        }
+    </script>
+</body>
+</html>
