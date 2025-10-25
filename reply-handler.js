@@ -24,6 +24,9 @@
     const MAX_RECORDING_TIME = 180; // 3 minutes in seconds
     let lastReplyTime = 0;
     const RATE_LIMIT_SECONDS = 5;
+    let audioContext = null;
+    let analyser = null;
+    let animationFrame = null;
 
     // Generate waveform bars
     function generateReplyWaveform() {
@@ -36,17 +39,37 @@
         }
     }
 
-    // Animate waveform during recording
-    function animateReplyWaveform() {
+    // Animate waveform during recording with real audio input
+    function animateReplyWaveform(stream) {
         const bars = replyWaveform.querySelectorAll('.reply-waveform-bar');
-        bars.forEach((bar, index) => {
-            setInterval(() => {
-                if (mediaRecorder && mediaRecorder.state === 'recording') {
-                    const height = Math.random() * 50 + 10;
+
+        // Setup Web Audio API for real-time visualization
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        analyser = audioContext.createAnalyser();
+        const source = audioContext.createMediaStreamSource(stream);
+        source.connect(analyser);
+
+        analyser.fftSize = 64; // Smaller size for smoother animation
+        const bufferLength = analyser.frequencyBinCount;
+        const dataArray = new Uint8Array(bufferLength);
+
+        function animate() {
+            if (mediaRecorder && mediaRecorder.state === 'recording') {
+                analyser.getByteFrequencyData(dataArray);
+
+                // Update each bar based on frequency data
+                bars.forEach((bar, index) => {
+                    const dataIndex = Math.floor((index / bars.length) * bufferLength);
+                    const value = dataArray[dataIndex] || 0;
+                    const height = Math.max(10, (value / 255) * 60); // Scale between 10-60px
                     bar.style.height = `${height}px`;
-                }
-            }, 150 + index * 10);
-        });
+                });
+
+                animationFrame = requestAnimationFrame(animate);
+            }
+        }
+
+        animate();
     }
 
     // Format time MM:SS
@@ -124,8 +147,8 @@
             replyRecordBtn.classList.add('recording');
             replyHint.textContent = 'Recording... Click to stop';
 
-            // Animate waveform
-            animateReplyWaveform();
+            // Animate waveform with real audio input
+            animateReplyWaveform(stream);
 
             // Update timer
             let elapsedSeconds = 0;
@@ -153,6 +176,15 @@
             replyRecordBtn.classList.remove('recording');
             if (recordingInterval) {
                 clearInterval(recordingInterval);
+            }
+            // Cleanup audio visualization
+            if (animationFrame) {
+                cancelAnimationFrame(animationFrame);
+                animationFrame = null;
+            }
+            if (audioContext) {
+                audioContext.close();
+                audioContext = null;
             }
         }
     }
@@ -229,12 +261,11 @@
 
             const { uploadUrl, key } = await uploadResponse.json();
 
-            // Upload to S3 with public-read ACL for replies
+            // Upload to S3
             const uploadS3Response = await fetch(uploadUrl, {
                 method: 'PUT',
                 headers: {
-                    'Content-Type': 'audio/webm',
-                    'x-amz-acl': 'public-read'
+                    'Content-Type': 'audio/webm'
                 },
                 body: blob
             });
