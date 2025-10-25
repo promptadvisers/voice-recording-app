@@ -458,29 +458,40 @@ async function generatePlayerUrl(s3Url, title = null, transcription = null, dura
  * Copy share link to clipboard
  */
 async function copyShareLink(url) {
-  // Generate pretty player URL instead of raw S3 link
-  const filename = url.split('/').pop().split('?')[0];
-  const title = filename.replace(/\.[^/.]+$/, '').replace(/_/g, ' ').replace(/-/g, ' ');
-
-  // Try to get duration from the audio player if available
-  let duration = null;
   try {
-    const audioElement = document.getElementById('audioPlayer');
-    if (currentRecordingUrl === url && audioElement && audioElement.duration && !isNaN(audioElement.duration) && isFinite(audioElement.duration)) {
-      duration = audioElement.duration;
+    // Generate pretty player URL instead of raw S3 link
+    const filename = url.split('/').pop().split('?')[0];
+    const title = filename.replace(/\.[^/.]+$/, '').replace(/_/g, ' ').replace(/-/g, ' ');
+
+    // Try to get duration from the audio player if available
+    let duration = null;
+    try {
+      const audioElement = document.getElementById('audioPlayer');
+      if (currentRecordingUrl === url && audioElement && audioElement.duration && !isNaN(audioElement.duration) && isFinite(audioElement.duration)) {
+        duration = audioElement.duration;
+      }
+    } catch (e) {
+      console.log('Could not get duration:', e);
     }
-  } catch (e) {
-    console.log('Could not get duration:', e);
-  }
 
-  const playerUrl = await generatePlayerUrl(url, title, currentTranscription, duration);
+    console.log('Generating player URL for:', { url, title, duration });
+    const playerUrl = await generatePlayerUrl(url, title, currentTranscription, duration);
+    console.log('Generated player URL:', playerUrl);
 
-  const success = await S3Uploader.copyToClipboard(playerUrl);
+    if (!playerUrl) {
+      throw new Error('Failed to generate player URL');
+    }
 
-  if (success) {
-    showToast('Player link copied to clipboard!', 'success');
-  } else {
-    showToast('Failed to copy link', 'error');
+    const success = await S3Uploader.copyToClipboard(playerUrl);
+
+    if (success) {
+      showToast('Player link copied to clipboard!', 'success');
+    } else {
+      showToast('Failed to copy link', 'error');
+    }
+  } catch (error) {
+    console.error('Error in copyShareLink:', error);
+    showToast('Failed to copy link: ' + error.message, 'error');
   }
 }
 
