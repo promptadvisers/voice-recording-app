@@ -846,6 +846,7 @@ if (sendTextReplyBtn) {
             }
 
             // Send text reply to server
+            console.log('[TEXT REPLY] Adding text reply to thread:', recordingId);
             const response = await fetch(`/api/recordings/${encodeURIComponent(recordingId)}/replies`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -858,10 +859,12 @@ if (sendTextReplyBtn) {
 
             if (!response.ok) {
                 const errorData = await response.json();
+                console.error('[TEXT REPLY] Failed to add to thread:', errorData);
                 throw new Error(errorData.error || 'Failed to send reply');
             }
 
             const result = await response.json();
+            console.log('[TEXT REPLY] ✓ Text reply added to thread successfully:', result);
 
             // Show success
             textReplyStatus.textContent = '✓ Your reply has been sent!';

@@ -344,10 +344,12 @@
                     // Add reply to thread if recordingId is available
                     if (recordingId) {
                         try {
-                            await fetch(`/api/recordings/${recordingId}/replies`, {
+                            console.log('[VOICE REPLY] Adding voice reply to thread:', recordingId);
+                            const threadResponse = await fetch(`/api/recordings/${recordingId}/replies`, {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json' },
                                 body: JSON.stringify({
+                                    type: 'voice',
                                     replyUrl: s3Url,
                                     replyShareUrl: replyShareUrl,
                                     transcription: transcriptionText || '',
@@ -355,11 +357,19 @@
                                     timestamp: new Date().toISOString()
                                 })
                             });
-                            console.log('Reply added to thread for recording:', recordingId);
+
+                            if (threadResponse.ok) {
+                                const threadResult = await threadResponse.json();
+                                console.log('[VOICE REPLY] ✓ Voice reply added to thread successfully:', threadResult);
+                            } else {
+                                console.error('[VOICE REPLY] Failed to add to thread:', threadResponse.status);
+                            }
                         } catch (threadError) {
-                            console.warn('Failed to add reply to thread:', threadError);
+                            console.warn('[VOICE REPLY] Failed to add reply to thread:', threadError);
                             // Don't fail the whole operation if thread update fails
                         }
+                    } else {
+                        console.warn('[VOICE REPLY] No recordingId available, skipping thread update');
                     }
 
                     // Send webhook notification
