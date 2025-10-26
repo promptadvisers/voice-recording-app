@@ -721,6 +721,29 @@ app.post('/api/transcribe', async (req, res) => {
 
     console.log('[TRANSCRIBE] Sending response with TLDR:', generatedTLDR);
 
+    // Save metadata to S3 for persistence (async, don't wait)
+    if (updatedFilename && (transcription?.text || generatedTLDR || generatedTitle)) {
+      const metadataToSave = {
+        transcription: transcription?.text || null,
+        tldr: generatedTLDR,
+        title: generatedTitle,
+        created: new Date().toISOString(),
+        updated: new Date().toISOString()
+      };
+
+      const metadataKey = `shared/${updatedFilename}.json`;
+      const metadataCommand = new PutObjectCommand({
+        Bucket: BUCKET_NAME,
+        Key: metadataKey,
+        Body: JSON.stringify(metadataToSave, null, 2),
+        ContentType: 'application/json'
+      });
+
+      s3Client.send(metadataCommand)
+        .then(() => console.log('[METADATA] Saved metadata to S3:', metadataKey))
+        .catch(err => console.error('[METADATA] Failed to save metadata:', err));
+    }
+
     res.json({
       success: true,
       transcription: transcription?.text || '',
@@ -765,6 +788,95 @@ app.post('/api/generate-tldr', async (req, res) => {
     console.error('[API] Error generating TLDR on-demand:', error);
     res.status(500).json({
       error: error.message || 'Failed to generate TLDR'
+    });
+  }
+});
+
+// Save metadata (transcription + TLDR) to S3
+app.post('/api/save-metadata', async (req, res) => {
+  try {
+    const { filename, transcription, tldr, title } = req.body;
+
+    if (!filename) {
+      return res.status(400).json({ error: 'Filename is required' });
+    }
+
+    // Create metadata object
+    const metadata = {
+      transcription: transcription || null,
+      tldr: tldr || null,
+      title: title || null,
+      created: new Date().toISOString(),
+      updated: new Date().toISOString()
+    };
+
+    // Store metadata as JSON file alongside the audio file
+    const metadataKey = `shared/${filename}.json`;
+    const metadataCommand = new PutObjectCommand({
+      Bucket: BUCKET_NAME,
+      Key: metadataKey,
+      Body: JSON.stringify(metadata, null, 2),
+      ContentType: 'application/json'
+    });
+
+    await s3Client.send(metadataCommand);
+
+    console.log('[METADATA] Saved metadata to S3:', metadataKey);
+
+    res.json({
+      success: true,
+      message: 'Metadata saved successfully',
+      key: metadataKey
+    });
+
+  } catch (error) {
+    console.error('[METADATA] Error saving metadata:', error);
+    res.status(500).json({
+      error: error.message || 'Failed to save metadata'
+    });
+  }
+});
+
+// Get metadata (transcription + TLDR) from S3
+app.get('/api/get-metadata', async (req, res) => {
+  try {
+    const { filename } = req.query;
+
+    if (!filename) {
+      return res.status(400).json({ error: 'Filename is required' });
+    }
+
+    // Try to get metadata JSON file
+    const metadataKey = `shared/${filename}.json`;
+    const getCommand = new GetObjectCommand({
+      Bucket: BUCKET_NAME,
+      Key: metadataKey
+    });
+
+    try {
+      const response = await s3Client.send(getCommand);
+      const metadataStr = await response.Body.transformToString();
+      const metadata = JSON.parse(metadataStr);
+
+      res.json({
+        success: true,
+        metadata
+      });
+    } catch (s3Error) {
+      // Metadata file doesn't exist
+      if (s3Error.name === 'NoSuchKey') {
+        return res.status(404).json({
+          error: 'Metadata not found',
+          message: 'No metadata file exists for this recording'
+        });
+      }
+      throw s3Error;
+    }
+
+  } catch (error) {
+    console.error('[METADATA] Error getting metadata:', error);
+    res.status(500).json({
+      error: error.message || 'Failed to get metadata'
     });
   }
 });
@@ -1089,12 +1201,61 @@ app.get('/api/get-share-link', async (req, res) => {
       // Increment click counter (async, don't wait)
       redis.incr(`link:${hash}:clicks`).catch(err => console.error('Failed to increment clicks:', err));
 
-      // Return the data
+      // If transcription or TLDR is missing, try to fetch from S3 metadata
+      let transcription = data.transcription || null;
+      let tldr = data.tldr || null;
+      let title = data.title || null;
+
+      if ((!transcription || !tldr) && data.url) {
+        try {
+          // Extract filename from URL
+          const urlObj = new URL(data.url);
+          const pathname = urlObj.pathname;
+          const filename = pathname.split('/').pop().split('?')[0];
+
+          if (filename) {
+            console.log('[FALLBACK] Attempting to fetch metadata from S3 for:', filename);
+            const metadataKey = `shared/${filename}.json`;
+            const getCommand = new GetObjectCommand({
+              Bucket: BUCKET_NAME,
+              Key: metadataKey
+            });
+
+            try {
+              const response = await s3Client.send(getCommand);
+              const metadataStr = await response.Body.transformToString();
+              const metadata = JSON.parse(metadataStr);
+
+              // Use S3 metadata as fallback
+              if (!transcription && metadata.transcription) {
+                transcription = metadata.transcription;
+                console.log('[FALLBACK] Retrieved transcription from S3');
+              }
+              if (!tldr && metadata.tldr) {
+                tldr = metadata.tldr;
+                console.log('[FALLBACK] Retrieved TLDR from S3');
+              }
+              if (!title && metadata.title) {
+                title = metadata.title;
+                console.log('[FALLBACK] Retrieved title from S3');
+              }
+            } catch (s3Error) {
+              if (s3Error.name !== 'NoSuchKey') {
+                console.error('[FALLBACK] Error fetching S3 metadata:', s3Error);
+              }
+            }
+          }
+        } catch (urlError) {
+          console.error('[FALLBACK] Error parsing URL:', urlError);
+        }
+      }
+
+      // Return the data (with S3 fallback if applicable)
       res.status(200).json({
         url: data.url,
-        title: data.title || null,
-        transcription: data.transcription || null,
-        tldr: data.tldr || null,
+        title: title,
+        transcription: transcription,
+        tldr: tldr,
         duration: data.duration || null
       });
 

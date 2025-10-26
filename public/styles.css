@@ -1477,6 +1477,55 @@ body::before {
   box-shadow: var(--shadow-md);
 }
 
+/* TLDR Section */
+.tldr-section {
+  margin-top: 24px;
+  padding-top: 24px;
+  border-top: 1px solid var(--border-color);
+}
+
+.tldr-header {
+  margin-bottom: 16px;
+}
+
+.tldr-header h3 {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.005em;
+}
+
+.tldr-header svg {
+  color: var(--accent-color);
+}
+
+.tldr-text {
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.08) 0%, rgba(118, 75, 162, 0.08) 100%);
+  border: 1px solid rgba(102, 126, 234, 0.2);
+  border-radius: var(--radius-md);
+  padding: 20px;
+  font-size: 0.9375rem;
+  line-height: 1.6;
+  color: var(--text-primary);
+  font-weight: 500;
+  margin-bottom: 16px;
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.1);
+}
+
+[data-theme="dark"] .tldr-text {
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.12) 0%, rgba(118, 75, 162, 0.12) 100%);
+  border-color: rgba(102, 126, 234, 0.25);
+}
+
+.tldr-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+}
+
 /* Accessibility */
 @media (prefers-reduced-motion: reduce) {
   *,

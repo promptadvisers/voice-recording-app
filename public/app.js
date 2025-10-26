@@ -41,12 +41,18 @@ const transcriptionTitleText = transcriptionTitle ? transcriptionTitle.querySele
 const copyTranscriptionBtn = document.getElementById('copyTranscriptionBtn');
 const downloadTranscriptionBtn = document.getElementById('downloadTranscriptionBtn');
 
+// TLDR Elements
+const tldrSection = document.getElementById('tldrSection');
+const tldrText = document.getElementById('tldrText');
+const copyTldrBtn = document.getElementById('copyTldrBtn');
+
 // State
 let isRecording = false;
 let recordingTimer = null;
 let recordingStartTime = 0;
 let deleteTarget = null;
 let currentTranscription = null;
+let currentTldr = null;
 let currentRecordingUrl = null;
 let currentRecordingTitle = null;
 let originalRecordingFilename = null;
@@ -855,7 +861,7 @@ function closePlayerModal() {
 /**
  * Generate player URL from S3 URL
  */
-async function generatePlayerUrl(s3Url, title = null, transcription = null, duration = null) {
+async function generatePlayerUrl(s3Url, title = null, transcription = null, duration = null, tldr = null) {
   const baseUrl = window.location.origin;
 
   try {
@@ -869,7 +875,8 @@ async function generatePlayerUrl(s3Url, title = null, transcription = null, dura
         url: s3Url,
         title: title || null,
         transcription: transcription || null,
-        duration: duration || null
+        duration: duration || null,
+        tldr: tldr || null
       })
     });
 
@@ -914,8 +921,8 @@ async function copyShareLink(url) {
       console.log('Could not get duration:', e);
     }
 
-    console.log('Generating player URL for:', { url, title, duration });
-    const playerUrl = await generatePlayerUrl(url, title, currentTranscription, duration);
+    console.log('Generating player URL for:', { url, title, duration, tldr: currentTldr });
+    const playerUrl = await generatePlayerUrl(url, title, currentTranscription, duration, currentTldr);
     console.log('Generated player URL:', playerUrl);
 
     if (!playerUrl) {
@@ -1162,6 +1169,7 @@ async function transcribeRecording(fileUrl) {
 
     const result = await response.json();
     currentTranscription = result.transcription;
+    currentTldr = result.tldr || null;
     currentRecordingTitle = result.title || null;
 
     if (result.shareableUrl) {
@@ -1185,6 +1193,14 @@ async function transcribeRecording(fileUrl) {
       } else {
         transcriptionTitle.style.display = 'none';
       }
+    }
+
+    // Display TLDR if available
+    if (currentTldr && tldrSection && tldrText) {
+      tldrText.textContent = currentTldr;
+      tldrSection.style.display = 'block';
+    } else if (tldrSection) {
+      tldrSection.style.display = 'none';
     }
 
     showToast('Transcription complete!', 'success');
@@ -1252,6 +1268,20 @@ function downloadTranscription() {
 }
 
 /**
+ * Copy TLDR to clipboard
+ */
+async function copyTldr() {
+  if (!currentTldr) return;
+
+  const success = await S3Uploader.copyToClipboard(currentTldr);
+  if (success) {
+    showToast('TL;DR copied to clipboard!', 'success');
+  } else {
+    showToast('Failed to copy TL;DR', 'error');
+  }
+}
+
+/**
  * Set up event listeners for transcription buttons
  */
 function setupTranscriptionListeners() {
@@ -1261,6 +1291,10 @@ function setupTranscriptionListeners() {
 
   if (downloadTranscriptionBtn) {
     downloadTranscriptionBtn.addEventListener('click', downloadTranscription);
+  }
+
+  if (copyTldrBtn) {
+    copyTldrBtn.addEventListener('click', copyTldr);
   }
 }
 
