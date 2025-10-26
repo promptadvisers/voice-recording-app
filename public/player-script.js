@@ -84,6 +84,10 @@ if (!audioUrl) {
             tldrTextEl.textContent = tldr;
             tldrSection.style.display = 'block';
         }
+    } else if (transcription) {
+        // If no TLDR but we have transcription, generate TLDR on-demand
+        console.log('[Player] No TLDR found, generating on-demand from transcription');
+        generateTLDROnDemand(transcription);
     }
 
     // Always start with "Click play to start"
@@ -976,4 +980,45 @@ if (downloadTranscriptionBtn) {
             downloadTranscriptionBtn.style.color = '';
         }, 2000);
     });
+}
+
+// Generate TLDR on-demand
+async function generateTLDROnDemand(transcriptionText) {
+    try {
+        let textToSend = transcriptionText;
+
+        // Try to decode if it looks encoded
+        try {
+            textToSend = decodeURIComponent(transcriptionText);
+        } catch (e) {
+            // If decoding fails, use original
+            textToSend = transcriptionText;
+        }
+
+        console.log('[Player] Sending TLDR generation request...');
+
+        const response = await fetch('/api/generate-tldr', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ transcription: textToSend })
+        });
+
+        if (!response.ok) {
+            console.error('[Player] TLDR generation failed:', response.status);
+            return;
+        }
+
+        const result = await response.json();
+        console.log('[Player] TLDR generated:', result.tldr);
+
+        if (result.tldr) {
+            const tldrTextEl = document.getElementById('tldr-text');
+            const tldrSection = document.getElementById('tldr-section');
+            tldrTextEl.textContent = result.tldr;
+            tldrSection.style.display = 'block';
+        }
+
+    } catch (error) {
+        console.error('[Player] Error generating TLDR on-demand:', error);
+    }
 }

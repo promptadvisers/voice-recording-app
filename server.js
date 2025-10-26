@@ -240,16 +240,24 @@ function cleanGeneratedTitle(title) {
 }
 
 async function generateTLDR(transcriptionText) {
+  console.log('[TLDR] Starting TLDR generation...');
+  console.log('[TLDR] Transcription length:', transcriptionText?.length || 0, 'characters');
+
   if (!transcriptionText || !transcriptionText.trim()) {
-    return null; // Skip if no transcription
+    console.log('[TLDR] No transcription text provided, skipping TLDR generation');
+    return null;
   }
 
   if (!AI_TLDR_ENABLED) {
+    console.log('[TLDR] TLDR generation is disabled via AI_TLDR_ENABLED');
     return null;
   }
 
   try {
     const prompt = `${DEFAULT_TLDR_PROMPT}\n\n${transcriptionText}`;
+    console.log('[TLDR] Sending prompt to OpenAI (model:', DEFAULT_TITLE_MODEL, ')');
+    console.log('[TLDR] Prompt:', prompt);
+
     const response = await openai.responses.create({
       model: DEFAULT_TITLE_MODEL,
       input: prompt,
@@ -257,9 +265,14 @@ async function generateTLDR(transcriptionText) {
       temperature: AI_TITLE_TEMPERATURE
     });
 
+    console.log('[TLDR] Received response from OpenAI');
+    console.log('[TLDR] Raw response:', JSON.stringify(response, null, 2));
+
     const rawTLDR = response.output_text || response.outputText || response.output?.[0]?.content?.[0]?.text || null;
+    console.log('[TLDR] Extracted raw TLDR:', rawTLDR);
 
     if (!rawTLDR) {
+      console.log('[TLDR] ERROR: No TLDR text found in OpenAI response');
       return null;
     }
 
@@ -268,9 +281,12 @@ async function generateTLDR(transcriptionText) {
       .replace(/^(TLDR:|TL;DR:|Summary:)\s*/i, '') // Remove prefixes
       .trim();
 
+    console.log('[TLDR] Cleaned TLDR:', cleanedTLDR);
+    console.log('[TLDR] ✓ TLDR generation successful');
     return cleanedTLDR;
   } catch (error) {
-    console.error('Error generating TLDR:', error);
+    console.error('[TLDR] ERROR: Exception during TLDR generation:', error);
+    console.error('[TLDR] Error stack:', error.stack);
     return null;
   }
 }
@@ -673,12 +689,18 @@ app.post('/api/transcribe', async (req, res) => {
     // Generate TLDR
     let generatedTLDR = null;
     if (transcription?.text) {
+      console.log('[TRANSCRIBE] Starting TLDR generation for transcription');
       try {
         generatedTLDR = await generateTLDR(transcription.text);
+        console.log('[TRANSCRIBE] TLDR generation completed. Result:', generatedTLDR);
       } catch (tldrError) {
-        console.error('TLDR generation error:', tldrError);
+        console.error('[TRANSCRIBE] TLDR generation error:', tldrError);
       }
+    } else {
+      console.log('[TRANSCRIBE] No transcription text available, skipping TLDR generation');
     }
+
+    console.log('[TRANSCRIBE] Sending response with TLDR:', generatedTLDR);
 
     res.json({
       success: true,
@@ -695,6 +717,35 @@ app.post('/api/transcribe', async (req, res) => {
     console.error('Transcription error:', error);
     res.status(500).json({
       error: error.message || 'Failed to transcribe audio'
+    });
+  }
+});
+
+// Generate TLDR on-demand from transcription text
+app.post('/api/generate-tldr', async (req, res) => {
+  try {
+    const { transcription } = req.body;
+
+    if (!transcription) {
+      return res.status(400).json({ error: 'Transcription text is required' });
+    }
+
+    console.log('[API] Received on-demand TLDR generation request');
+    console.log('[API] Transcription length:', transcription.length);
+
+    const tldr = await generateTLDR(transcription);
+
+    console.log('[API] TLDR generation result:', tldr);
+
+    res.json({
+      success: true,
+      tldr: tldr
+    });
+
+  } catch (error) {
+    console.error('[API] Error generating TLDR on-demand:', error);
+    res.status(500).json({
+      error: error.message || 'Failed to generate TLDR'
     });
   }
 });
