@@ -392,6 +392,13 @@ function resetWaveform() {
 
 // Keyboard shortcuts
 document.addEventListener('keydown', (e) => {
+    // Don't trigger shortcuts if user is typing in a text field
+    const isTyping = e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT';
+
+    if (isTyping) {
+        return; // Let the user type normally
+    }
+
     if (e.code === 'Space') {
         e.preventDefault();
         playButton.click();
