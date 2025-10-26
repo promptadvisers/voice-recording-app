@@ -335,22 +335,8 @@ shareButton.addEventListener('click', async () => {
         shareButton.textContent = originalText;
         shareButton.disabled = false;
 
-        // Share or copy the short URL
-        if (navigator.share) {
-            try {
-                await navigator.share({
-                    title: title ? safeDecode(title) : 'Voice Recording',
-                    text: 'Listen to this voice recording',
-                    url: shortUrl
-                });
-            } catch (err) {
-                if (err.name !== 'AbortError') {
-                    copyToClipboard(shortUrl);
-                }
-            }
-        } else {
-            copyToClipboard(shortUrl);
-        }
+        // Copy the short URL directly to clipboard
+        copyToClipboard(shortUrl);
     } catch (error) {
         console.error('Error creating share link:', error);
         // Fallback to current URL if short link fails
@@ -613,22 +599,13 @@ window.playReply = function(replyUrl, replyId) {
 
 // Share reply
 window.shareReply = async function(replyUrl) {
-    if (navigator.share) {
-        try {
-            await navigator.share({
-                title: 'Voice Reply',
-                text: 'Listen to this voice reply',
-                url: replyUrl
-            });
-        } catch (err) {
-            if (err.name !== 'AbortError') {
-                await navigator.clipboard.writeText(replyUrl);
-                alert('Link copied to clipboard!');
-            }
-        }
-    } else {
+    // Copy to clipboard directly (skip native share menu)
+    try {
         await navigator.clipboard.writeText(replyUrl);
         alert('Link copied to clipboard!');
+    } catch (err) {
+        console.error('Failed to copy:', err);
+        alert('Failed to copy link');
     }
 };
 
