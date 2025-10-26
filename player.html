@@ -230,17 +230,72 @@
             display: block;
         }
 
+        .transcription-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+            gap: 12px;
+        }
+
         .transcription h3 {
             font-size: 14px;
             color: #2d3748;
-            margin-bottom: 12px;
+            margin: 0;
             font-weight: 600;
+        }
+
+        .transcription-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .transcription-btn {
+            padding: 6px 12px;
+            border: 2px solid #e0e0e0;
+            background: white;
+            border-radius: 8px;
+            font-size: 12px;
+            font-weight: 600;
+            color: #4a5568;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .transcription-btn:hover {
+            border-color: #1a73e8;
+            color: #1a73e8;
+            background: #f7fafc;
+        }
+
+        .transcription-btn:active {
+            transform: scale(0.95);
         }
 
         .transcription p {
             color: #4a5568;
             line-height: 1.6;
             font-size: 14px;
+            margin: 0;
+        }
+
+        @media (max-width: 480px) {
+            .transcription-header {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .transcription-actions {
+                width: 100%;
+            }
+
+            .transcription-btn {
+                flex: 1;
+                justify-content: center;
+            }
         }
 
         .loading {
@@ -453,6 +508,198 @@
             color: #e53e3e;
             font-weight: 600;
         }
+
+        /* Thread Section */
+        .thread-section {
+            margin-top: 30px;
+            padding: 24px;
+            background: #f7fafc;
+            border-radius: 12px;
+            display: none;
+        }
+
+        .thread-section.visible {
+            display: block;
+        }
+
+        .thread-header {
+            margin-bottom: 20px;
+            padding-bottom: 12px;
+            border-bottom: 2px solid #e0e0e0;
+        }
+
+        .thread-header h3 {
+            font-size: 18px;
+            color: #2d3748;
+            font-weight: 600;
+            margin: 0;
+        }
+
+        .thread-timeline {
+            display: none;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .thread-timeline.visible {
+            display: flex;
+        }
+
+        .thread-empty {
+            text-align: center;
+            padding: 40px 20px;
+            color: #718096;
+        }
+
+        .thread-empty.hidden {
+            display: none;
+        }
+
+        .thread-empty p {
+            margin: 0;
+            font-size: 14px;
+        }
+
+        .reply-item {
+            background: white;
+            border-radius: 12px;
+            padding: 16px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+            transition: all 0.3s ease;
+            position: relative;
+            padding-left: 24px;
+        }
+
+        .reply-item::before {
+            content: '';
+            position: absolute;
+            left: 8px;
+            top: 24px;
+            width: 3px;
+            height: calc(100% - 32px);
+            background: linear-gradient(135deg, #1a73e8 0%, #0d47a1 100%);
+            border-radius: 2px;
+        }
+
+        .reply-item:hover {
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            transform: translateY(-2px);
+        }
+
+        .reply-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+
+        .reply-timestamp {
+            font-size: 12px;
+            color: #718096;
+            font-weight: 600;
+        }
+
+        .reply-duration {
+            font-size: 12px;
+            color: #1a73e8;
+            background: #e6f2ff;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-weight: 600;
+        }
+
+        .reply-transcription {
+            font-size: 14px;
+            color: #4a5568;
+            line-height: 1.6;
+            margin-bottom: 12px;
+            padding: 12px;
+            background: #f7fafc;
+            border-radius: 8px;
+            max-height: 80px;
+            overflow: hidden;
+            position: relative;
+            transition: max-height 0.3s ease;
+        }
+
+        .reply-transcription.expanded {
+            max-height: none;
+        }
+
+        .reply-transcription.empty {
+            display: none;
+        }
+
+        .reply-transcription-toggle {
+            color: #1a73e8;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 8px;
+            display: inline-block;
+        }
+
+        .reply-transcription-toggle:hover {
+            text-decoration: underline;
+        }
+
+        .reply-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .reply-play-btn, .reply-share-btn {
+            padding: 8px 16px;
+            border: 2px solid #e0e0e0;
+            background: white;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 600;
+            color: #4a5568;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .reply-play-btn:hover, .reply-share-btn:hover {
+            border-color: #1a73e8;
+            color: #1a73e8;
+            background: #f7fafc;
+        }
+
+        .reply-play-btn.playing {
+            background: linear-gradient(135deg, #1a73e8 0%, #0d47a1 100%);
+            border-color: #1a73e8;
+            color: white;
+        }
+
+        .reply-loading {
+            text-align: center;
+            padding: 20px;
+            color: #718096;
+        }
+
+        @media (max-width: 480px) {
+            .thread-section {
+                padding: 16px;
+            }
+
+            .reply-item {
+                padding: 12px;
+                padding-left: 20px;
+            }
+
+            .reply-actions {
+                flex-direction: column;
+            }
+
+            .reply-play-btn, .reply-share-btn {
+                width: 100%;
+                justify-content: center;
+            }
+        }
     </style>
 </head>
 <body>
@@ -509,8 +756,31 @@
         </div>
 
         <div class="transcription" id="transcription">
-            <h3>Transcription</h3>
+            <div class="transcription-header">
+                <h3>Transcription</h3>
+                <div class="transcription-actions" id="transcription-actions">
+                    <button class="transcription-btn copy-btn" id="copy-transcription" title="Copy transcription">
+                        📋 Copy
+                    </button>
+                    <button class="transcription-btn download-btn" id="download-transcription" title="Download transcription">
+                        ⬇️ Download
+                    </button>
+                </div>
+            </div>
             <p id="transcription-text"></p>
+        </div>
+
+        <!-- Thread Section -->
+        <div class="thread-section" id="thread-section">
+            <div class="thread-header">
+                <h3>Replies (<span id="reply-count">0</span>)</h3>
+            </div>
+            <div class="thread-timeline" id="thread-timeline">
+                <!-- Reply items will be dynamically added here -->
+            </div>
+            <div class="thread-empty" id="thread-empty">
+                <p>No replies yet. Be the first to reply!</p>
+            </div>
         </div>
     </div>
 

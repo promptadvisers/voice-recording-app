@@ -231,6 +231,14 @@
                 ? window.location.pathname.split('/s/')[1]
                 : new URLSearchParams(window.location.search).get('url');
 
+            // Extract recording ID from the current audio URL
+            let recordingId = null;
+            if (window.audioUrl) {
+                const urlParts = window.audioUrl.split('/');
+                const filename = urlParts[urlParts.length - 1].split('?')[0];
+                recordingId = filename.replace(/\.[^/.]+$/, '');
+            }
+
             // Sanitize the hash - if it's a URL, create a hash from it
             if (originalHash && (originalHash.includes('http') || originalHash.includes('/'))) {
                 // Create a simple hash from the URL
@@ -331,6 +339,27 @@
                         }
                     } catch (shareError) {
                         console.warn('Failed to create share link for reply:', shareError);
+                    }
+
+                    // Add reply to thread if recordingId is available
+                    if (recordingId) {
+                        try {
+                            await fetch(`/api/recordings/${recordingId}/replies`, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    replyUrl: s3Url,
+                                    replyShareUrl: replyShareUrl,
+                                    transcription: transcriptionText || '',
+                                    duration: Math.round(duration * 10) / 10,
+                                    timestamp: new Date().toISOString()
+                                })
+                            });
+                            console.log('Reply added to thread for recording:', recordingId);
+                        } catch (threadError) {
+                            console.warn('Failed to add reply to thread:', threadError);
+                            // Don't fail the whole operation if thread update fails
+                        }
                     }
 
                     // Send webhook notification

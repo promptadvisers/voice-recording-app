@@ -186,6 +186,19 @@ if (!awsInitialized && !process.env.VERCEL) {
   console.error('⚠️  AWS credentials not configured. Please set AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY in Vercel environment variables.');
 }
 
+// Utility function to extract recording ID from S3 URL or filename
+function extractRecordingId(url) {
+  if (!url) return null;
+
+  // Extract filename from S3 URL
+  const filename = url.split('/').pop().split('?')[0];
+
+  // Remove extension
+  const recordingId = filename.replace(/\.[^/.]+$/, '');
+
+  return recordingId;
+}
+
 // Utility function to sanitize filenames
 function sanitizeFilename(filename) {
   return filename
@@ -705,9 +718,146 @@ app.get('/api/health', (req, res) => {
     bucket: BUCKET_NAME,
     region: REGION,
     features: {
-      transcription: !!process.env.OPENAI_API_KEY
+      transcription: !!process.env.OPENAI_API_KEY,
+      threading: !!redis
     }
   });
+});
+
+// Thread Management Endpoints
+
+// Add a reply to a recording's thread
+app.post('/api/recordings/:recordingId/replies', async (req, res) => {
+  try {
+    const { recordingId } = req.params;
+    const { replyUrl, replyShareUrl, transcription, duration, timestamp } = req.body;
+
+    if (!recordingId || !replyUrl) {
+      return res.status(400).json({ error: 'Recording ID and reply URL are required' });
+    }
+
+    // Check if Redis is available
+    if (!redis) {
+      return res.status(503).json({ error: 'Threading service unavailable' });
+    }
+
+    // Generate unique reply ID
+    const replyId = generateSecureShortId(8);
+    const replyTimestamp = timestamp || new Date().toISOString();
+
+    // Store reply data in Redis hash
+    const replyData = {
+      url: replyUrl,
+      shareUrl: replyShareUrl || replyUrl,
+      transcription: transcription || '',
+      duration: duration || 0,
+      timestamp: replyTimestamp,
+      recordingId: recordingId
+    };
+
+    // Store reply hash (1 year TTL)
+    await redis.setex(`reply:${replyId}`, 31536000, JSON.stringify(replyData));
+
+    // Add reply to recording's thread (sorted set, score = timestamp)
+    const timestampScore = new Date(replyTimestamp).getTime();
+    await redis.zadd(`recording:${recordingId}:thread`, timestampScore, replyId);
+
+    res.status(200).json({
+      success: true,
+      replyId,
+      message: 'Reply added to thread'
+    });
+
+  } catch (error) {
+    console.error('Error adding reply to thread:', error);
+    res.status(500).json({ error: 'Failed to add reply to thread' });
+  }
+});
+
+// Get all replies for a recording's thread
+app.get('/api/recordings/:recordingId/replies', async (req, res) => {
+  try {
+    const { recordingId } = req.params;
+
+    if (!recordingId) {
+      return res.status(400).json({ error: 'Recording ID is required' });
+    }
+
+    // Check if Redis is available
+    if (!redis) {
+      return res.status(503).json({ error: 'Threading service unavailable' });
+    }
+
+    // Get all reply IDs from sorted set (chronological order)
+    const replyIds = await redis.zrange(`recording:${recordingId}:thread`, 0, -1);
+
+    if (!replyIds || replyIds.length === 0) {
+      return res.status(200).json({ replies: [] });
+    }
+
+    // Fetch all reply data
+    const replies = [];
+    for (const replyId of replyIds) {
+      const replyDataStr = await redis.get(`reply:${replyId}`);
+      if (replyDataStr) {
+        const replyData = JSON.parse(replyDataStr);
+        replies.push({
+          id: replyId,
+          ...replyData
+        });
+      }
+    }
+
+    res.status(200).json({ replies });
+
+  } catch (error) {
+    console.error('Error fetching thread replies:', error);
+    res.status(500).json({ error: 'Failed to fetch thread replies' });
+  }
+});
+
+// Get full thread with original recording metadata
+app.get('/api/threads/:recordingId', async (req, res) => {
+  try {
+    const { recordingId } = req.params;
+
+    if (!recordingId) {
+      return res.status(400).json({ error: 'Recording ID is required' });
+    }
+
+    // Check if Redis is available
+    if (!redis) {
+      return res.status(503).json({ error: 'Threading service unavailable' });
+    }
+
+    // Get reply count
+    const replyCount = await redis.zcard(`recording:${recordingId}:thread`);
+
+    // Get all replies
+    const replyIds = await redis.zrange(`recording:${recordingId}:thread`, 0, -1);
+    const replies = [];
+
+    for (const replyId of replyIds) {
+      const replyDataStr = await redis.get(`reply:${replyId}`);
+      if (replyDataStr) {
+        const replyData = JSON.parse(replyDataStr);
+        replies.push({
+          id: replyId,
+          ...replyData
+        });
+      }
+    }
+
+    res.status(200).json({
+      recordingId,
+      replyCount,
+      replies
+    });
+
+  } catch (error) {
+    console.error('Error fetching thread:', error);
+    res.status(500).json({ error: 'Failed to fetch thread' });
+  }
 });
 
 // Create short share link (Database-backed URL shortener)
@@ -739,12 +889,16 @@ app.post('/api/create-share-link', async (req, res) => {
       shortId = generateSecureShortId(8);
     }
 
+    // Extract recording ID from URL
+    const recordingId = extractRecordingId(url);
+
     // Store link data in Redis with 1 year expiration
     const linkData = {
       url,
       title: title || null,
       transcription: transcription || null,
       duration: duration || null,
+      recordingId: recordingId || null,
       created: new Date().toISOString(),
       clicks: 0
     };

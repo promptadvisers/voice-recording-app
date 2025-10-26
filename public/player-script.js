@@ -415,3 +415,338 @@ document.addEventListener('keydown', (e) => {
         audio.currentTime = Math.min(audio.duration, audio.currentTime + 5);
     }
 });
+
+// Thread Management
+let currentReplyAudio = null;
+
+// Extract recording ID from audioUrl
+function extractRecordingId() {
+    if (!audioUrl) return null;
+    const urlParts = audioUrl.split('/');
+    const filename = urlParts[urlParts.length - 1].split('?')[0];
+    return filename.replace(/\.[^/.]+$/, '');
+}
+
+// Load thread replies
+async function loadThread() {
+    const recordingId = extractRecordingId();
+    if (!recordingId) {
+        console.log('No recording ID found, skipping thread load');
+        return;
+    }
+
+    try {
+        const response = await fetch(`/api/recordings/${encodeURIComponent(recordingId)}/replies`);
+
+        if (!response.ok) {
+            console.warn('Failed to load thread:', response.status);
+            return;
+        }
+
+        const data = await response.json();
+        const replies = data.replies || [];
+
+        if (replies.length > 0) {
+            displayThread(replies);
+        }
+    } catch (error) {
+        console.error('Error loading thread:', error);
+    }
+}
+
+// Display thread
+function displayThread(replies) {
+    const threadSection = document.getElementById('thread-section');
+    const threadTimeline = document.getElementById('thread-timeline');
+    const threadEmpty = document.getElementById('thread-empty');
+    const replyCount = document.getElementById('reply-count');
+
+    if (!threadSection || !threadTimeline) return;
+
+    // Update reply count
+    replyCount.textContent = replies.length;
+
+    // Clear existing replies
+    threadTimeline.innerHTML = '';
+
+    // Add each reply
+    replies.forEach((reply, index) => {
+        const replyItem = createReplyItem(reply, index);
+        threadTimeline.appendChild(replyItem);
+    });
+
+    // Show thread section
+    threadSection.classList.add('visible');
+    threadTimeline.classList.add('visible');
+    threadEmpty.classList.add('hidden');
+}
+
+// Create reply item element
+function createReplyItem(reply, index) {
+    const item = document.createElement('div');
+    item.className = 'reply-item';
+    item.dataset.replyId = reply.id;
+
+    // Format timestamp
+    const timestamp = new Date(reply.timestamp);
+    const timeAgo = getTimeAgo(timestamp);
+
+    // Format duration
+    const durationText = reply.duration ? formatTime(reply.duration) : '--:--';
+
+    // Has transcription?
+    const hasTranscription = reply.transcription && reply.transcription.trim().length > 0;
+
+    item.innerHTML = `
+        <div class="reply-header">
+            <span class="reply-timestamp">${timeAgo}</span>
+            <span class="reply-duration">${durationText}</span>
+        </div>
+        ${hasTranscription ? `
+            <div class="reply-transcription" id="reply-trans-${reply.id}">
+                ${reply.transcription}
+            </div>
+            ${reply.transcription.length > 150 ? `
+                <div class="reply-transcription-toggle" onclick="toggleTranscription('${reply.id}')">
+                    Show more
+                </div>
+            ` : ''}
+        ` : ''}
+        <div class="reply-actions">
+            <button class="reply-play-btn" onclick="playReply('${reply.shareUrl || reply.url}', '${reply.id}')">
+                ▶ Play Reply
+            </button>
+            <button class="reply-share-btn" onclick="shareReply('${reply.shareUrl || reply.url}')">
+                📤 Share
+            </button>
+            ${hasTranscription ? `
+                <button class="reply-share-btn" onclick="copyReplyTranscription('${reply.id}')">
+                    📋 Copy
+                </button>
+            ` : ''}
+        </div>
+    `;
+
+    return item;
+}
+
+// Get time ago string
+function getTimeAgo(date) {
+    const now = new Date();
+    const diffMs = now - date;
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    if (diffMins < 1) {
+        return 'Just now';
+    } else if (diffMins < 60) {
+        return `${diffMins} min${diffMins > 1 ? 's' : ''} ago`;
+    } else if (diffHours < 24) {
+        return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
+    } else if (diffDays < 7) {
+        return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
+    } else {
+        return date.toLocaleDateString();
+    }
+}
+
+// Play reply
+window.playReply = function(replyUrl, replyId) {
+    // Stop any currently playing reply
+    if (currentReplyAudio) {
+        currentReplyAudio.pause();
+        currentReplyAudio = null;
+        // Reset all play buttons
+        document.querySelectorAll('.reply-play-btn').forEach(btn => {
+            btn.classList.remove('playing');
+            btn.innerHTML = '▶ Play Reply';
+        });
+    }
+
+    // Pause main audio if playing
+    if (!audio.paused) {
+        audio.pause();
+        playIcon.textContent = '▶';
+    }
+
+    // Create and play reply audio
+    currentReplyAudio = new Audio(replyUrl);
+    const playBtn = document.querySelector(`[data-reply-id="${replyId}"] .reply-play-btn`);
+
+    if (playBtn) {
+        playBtn.classList.add('playing');
+        playBtn.innerHTML = '⏸ Pause';
+    }
+
+    currentReplyAudio.play();
+
+    // Handle reply audio end
+    currentReplyAudio.addEventListener('ended', () => {
+        if (playBtn) {
+            playBtn.classList.remove('playing');
+            playBtn.innerHTML = '▶ Play Reply';
+        }
+        currentReplyAudio = null;
+    });
+
+    // Handle pause
+    currentReplyAudio.addEventListener('pause', () => {
+        if (playBtn && currentReplyAudio.currentTime < currentReplyAudio.duration - 0.1) {
+            playBtn.classList.remove('playing');
+            playBtn.innerHTML = '▶ Play Reply';
+        }
+    });
+
+    // Toggle play/pause on button click
+    playBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        if (currentReplyAudio && !currentReplyAudio.paused) {
+            currentReplyAudio.pause();
+        } else if (currentReplyAudio && currentReplyAudio.paused) {
+            currentReplyAudio.play();
+            playBtn.classList.add('playing');
+            playBtn.innerHTML = '⏸ Pause';
+        }
+    }, { once: true });
+};
+
+// Share reply
+window.shareReply = async function(replyUrl) {
+    if (navigator.share) {
+        try {
+            await navigator.share({
+                title: 'Voice Reply',
+                text: 'Listen to this voice reply',
+                url: replyUrl
+            });
+        } catch (err) {
+            if (err.name !== 'AbortError') {
+                await navigator.clipboard.writeText(replyUrl);
+                alert('Link copied to clipboard!');
+            }
+        }
+    } else {
+        await navigator.clipboard.writeText(replyUrl);
+        alert('Link copied to clipboard!');
+    }
+};
+
+// Toggle transcription expansion
+window.toggleTranscription = function(replyId) {
+    const transcriptionEl = document.getElementById(`reply-trans-${replyId}`);
+    const toggleBtn = transcriptionEl.nextElementSibling;
+
+    if (transcriptionEl.classList.contains('expanded')) {
+        transcriptionEl.classList.remove('expanded');
+        toggleBtn.textContent = 'Show more';
+    } else {
+        transcriptionEl.classList.add('expanded');
+        toggleBtn.textContent = 'Show less';
+    }
+};
+
+// Copy reply transcription
+window.copyReplyTranscription = async function(replyId) {
+    const transcriptionEl = document.getElementById(`reply-trans-${replyId}`);
+    if (!transcriptionEl) return;
+
+    const text = transcriptionEl.textContent;
+    if (!text) return;
+
+    try {
+        await navigator.clipboard.writeText(text);
+        // Find the copy button for this reply
+        const replyItem = transcriptionEl.closest('.reply-item');
+        const copyBtns = replyItem.querySelectorAll('.reply-share-btn');
+        const copyBtn = Array.from(copyBtns).find(btn => btn.textContent.includes('📋'));
+
+        if (copyBtn) {
+            const originalText = copyBtn.innerHTML;
+            copyBtn.innerHTML = '✓ Copied!';
+            copyBtn.style.borderColor = '#38a169';
+            copyBtn.style.color = '#38a169';
+
+            setTimeout(() => {
+                copyBtn.innerHTML = originalText;
+                copyBtn.style.borderColor = '';
+                copyBtn.style.color = '';
+            }, 2000);
+        }
+    } catch (err) {
+        console.error('Failed to copy reply transcription:', err);
+        alert('Failed to copy to clipboard');
+    }
+};
+
+// Load thread on page load
+if (audioUrl) {
+    loadThread();
+}
+
+// Transcription copy and download functionality
+const copyTranscriptionBtn = document.getElementById('copy-transcription');
+const downloadTranscriptionBtn = document.getElementById('download-transcription');
+const transcriptionTextEl = document.getElementById('transcription-text');
+
+if (copyTranscriptionBtn) {
+    copyTranscriptionBtn.addEventListener('click', async () => {
+        const text = transcriptionTextEl.textContent;
+        if (!text) return;
+
+        try {
+            await navigator.clipboard.writeText(text);
+            const originalText = copyTranscriptionBtn.innerHTML;
+            copyTranscriptionBtn.innerHTML = '✓ Copied!';
+            copyTranscriptionBtn.style.borderColor = '#38a169';
+            copyTranscriptionBtn.style.color = '#38a169';
+
+            setTimeout(() => {
+                copyTranscriptionBtn.innerHTML = originalText;
+                copyTranscriptionBtn.style.borderColor = '';
+                copyTranscriptionBtn.style.color = '';
+            }, 2000);
+        } catch (err) {
+            console.error('Failed to copy:', err);
+            alert('Failed to copy to clipboard');
+        }
+    });
+}
+
+if (downloadTranscriptionBtn) {
+    downloadTranscriptionBtn.addEventListener('click', () => {
+        const text = transcriptionTextEl.textContent;
+        if (!text) return;
+
+        // Create blob with transcription
+        const blob = new Blob([text], { type: 'text/plain' });
+        const url = URL.createObjectURL(blob);
+
+        // Get recording title for filename
+        const recordingTitleEl = document.getElementById('recording-title');
+        const titleText = recordingTitleEl ? recordingTitleEl.textContent : 'recording';
+        const filename = `${titleText.replace(/[^a-z0-9]/gi, '-').toLowerCase()}-transcription.txt`;
+
+        // Create download link
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = filename;
+        link.style.display = 'none';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+
+        // Visual feedback
+        const originalText = downloadTranscriptionBtn.innerHTML;
+        downloadTranscriptionBtn.innerHTML = '✓ Downloaded!';
+        downloadTranscriptionBtn.style.borderColor = '#38a169';
+        downloadTranscriptionBtn.style.color = '#38a169';
+
+        setTimeout(() => {
+            downloadTranscriptionBtn.innerHTML = originalText;
+            downloadTranscriptionBtn.style.borderColor = '';
+            downloadTranscriptionBtn.style.color = '';
+        }, 2000);
+    });
+}
