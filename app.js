@@ -922,28 +922,11 @@ async function copyShareLink(url) {
       throw new Error('Failed to generate player URL');
     }
 
-    // Try Web Share API first (better for mobile)
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          title: 'Voice Recording',
-          text: `Listen to: ${title}`,
-          url: playerUrl
-        });
-        showToast('Shared successfully!', 'success');
-        return;
-      } catch (shareError) {
-        // User cancelled share or share not supported
-        // Fall through to clipboard copy
-        console.log('Web Share cancelled or failed:', shareError);
-      }
-    }
-
-    // Fallback to clipboard copy
+    // Copy directly to clipboard
     const success = await S3Uploader.copyToClipboard(playerUrl);
 
     if (success) {
-      showToast('Player link copied to clipboard!', 'success');
+      showToast('Link copied to clipboard!', 'success');
     } else {
       showToast('Failed to copy link', 'error');
     }
