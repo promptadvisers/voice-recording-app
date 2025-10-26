@@ -509,6 +509,37 @@
             font-weight: 600;
         }
 
+        /* TLDR Section */
+        .tldr-section {
+            margin-bottom: 16px;
+            padding: 12px 16px;
+            background: linear-gradient(135deg, #fff9e6 0%, #fff3cc 100%);
+            border-left: 4px solid #f59e0b;
+            border-radius: 8px;
+        }
+
+        .tldr-label {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-bottom: 8px;
+            color: #92400e;
+            font-size: 13px;
+            font-weight: 600;
+        }
+
+        .tldr-icon {
+            font-size: 16px;
+        }
+
+        .tldr-text {
+            color: #451a03;
+            font-size: 14px;
+            line-height: 1.6;
+            font-weight: 500;
+            margin: 0;
+        }
+
         /* Reply Buttons Container */
         .reply-buttons {
             display: flex;
@@ -951,6 +982,16 @@
                     </button>
                 </div>
             </div>
+
+            <!-- TLDR Section -->
+            <div class="tldr-section" id="tldr-section" style="display: none;">
+                <div class="tldr-label">
+                    <span class="tldr-icon">💡</span>
+                    <strong>TL;DR:</strong>
+                </div>
+                <p class="tldr-text" id="tldr-text"></p>
+            </div>
+
             <p id="transcription-text"></p>
         </div>
 

@@ -5,6 +5,7 @@ const audioUrl = urlParams.get('url');
 window.audioUrl = audioUrl;
 const title = urlParams.get('title');
 const transcription = urlParams.get('transcription');
+const tldr = urlParams.get('tldr');
 const durationParam = urlParams.get('duration'); // Duration in seconds
 
 // Play tracking variables
@@ -66,6 +67,22 @@ if (!audioUrl) {
             // If decoding fails, use the raw transcription
             transcriptionText.textContent = transcription;
             transcriptionEl.classList.add('visible');
+        }
+    }
+
+    // Set TLDR if available
+    if (tldr) {
+        try {
+            const tldrTextEl = document.getElementById('tldr-text');
+            const tldrSection = document.getElementById('tldr-section');
+            tldrTextEl.textContent = decodeURIComponent(tldr);
+            tldrSection.style.display = 'block';
+        } catch (e) {
+            // If decoding fails, use the raw TLDR
+            const tldrTextEl = document.getElementById('tldr-text');
+            const tldrSection = document.getElementById('tldr-section');
+            tldrTextEl.textContent = tldr;
+            tldrSection.style.display = 'block';
         }
     }
 

@@ -42,6 +42,7 @@ let recordingTimer = null;
 let recordingStartTime = 0;
 let deleteTarget = null;
 let currentTranscription = null;
+let currentTLDR = null;
 let currentRecordingUrl = null;
 let currentRecordingTitle = null;
 let originalRecordingFilename = null;
@@ -415,7 +416,7 @@ function closePlayerModal() {
 /**
  * Generate player URL from S3 URL
  */
-async function generatePlayerUrl(s3Url, title = null, transcription = null, duration = null) {
+async function generatePlayerUrl(s3Url, title = null, transcription = null, duration = null, tldr = null) {
   const baseUrl = window.location.origin;
 
   try {
@@ -429,6 +430,7 @@ async function generatePlayerUrl(s3Url, title = null, transcription = null, dura
         url: s3Url,
         title: title || null,
         transcription: transcription || null,
+        tldr: tldr || null,
         duration: duration || null
       })
     });
@@ -449,6 +451,7 @@ async function generatePlayerUrl(s3Url, title = null, transcription = null, dura
   params.append('url', s3Url);
   if (title) params.append('title', title);
   if (transcription) params.append('transcription', transcription);
+  if (tldr) params.append('tldr', tldr);
   if (duration && !isNaN(duration) && isFinite(duration)) params.append('duration', duration);
 
   return `${baseUrl}/player.html?${params.toString()}`;
@@ -475,7 +478,7 @@ async function copyShareLink(url) {
     }
 
     console.log('Generating player URL for:', { url, title, duration });
-    const playerUrl = await generatePlayerUrl(url, title, currentTranscription, duration);
+    const playerUrl = await generatePlayerUrl(url, title, currentTranscription, duration, currentTLDR);
     console.log('Generated player URL:', playerUrl);
 
     if (!playerUrl) {
@@ -648,6 +651,7 @@ async function transcribeRecording(fileUrl) {
 
     const result = await response.json();
     currentTranscription = result.transcription;
+    currentTLDR = result.tldr || null;
     currentRecordingTitle = result.title || null;
 
     if (result.shareableUrl) {

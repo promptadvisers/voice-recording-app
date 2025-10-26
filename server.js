@@ -80,6 +80,9 @@ const AI_TITLE_ENABLED = process.env.ENABLE_AI_TITLES !== 'false';
 const AI_TITLE_TEMPERATURE = process.env.AI_TITLE_TEMPERATURE ? Number(process.env.AI_TITLE_TEMPERATURE) : 0.2;
 const AI_TITLE_MAX_TOKENS = process.env.AI_TITLE_MAX_TOKENS ? Number(process.env.AI_TITLE_MAX_TOKENS) : 20;
 const DEFAULT_TITLE_PROMPT = process.env.AI_TITLE_PROMPT || 'Summarize the following transcript in 1 to 4 words. Return only the concise title.';
+const AI_TLDR_ENABLED = process.env.ENABLE_AI_TLDR !== 'false';
+const AI_TLDR_MAX_TOKENS = process.env.AI_TLDR_MAX_TOKENS ? Number(process.env.AI_TLDR_MAX_TOKENS) : 60;
+const DEFAULT_TLDR_PROMPT = process.env.AI_TLDR_PROMPT || 'Provide a concise TLDR (1-2 sentences) summarizing the key point of this transcript:';
 const AUDIO_ENHANCEMENT_ENABLED = process.env.ENABLE_AUDIO_ENHANCEMENT === 'true';
 const AUDIO_ENHANCEMENT_SCRIPT = process.env.AUDIO_ENHANCEMENT_SCRIPT || path.join(__dirname, 'scripts', 'enhance_audio.py');
 const AUDIO_ENHANCEMENT_OUTPUT_SUFFIX = process.env.AUDIO_ENHANCEMENT_OUTPUT_SUFFIX || '-enhanced';
@@ -228,12 +231,48 @@ function cleanGeneratedTitle(title) {
   }
 
   const cleaned = String(title)
-    .replace(/["'`“”‘’]/g, '')
+    .replace(/["'`""'']/g, '')
     .replace(/\s+/g, ' ')
     .trim();
 
   const words = cleaned.split(' ').filter(Boolean).slice(0, 4);
   return words.join(' ');
+}
+
+async function generateTLDR(transcriptionText) {
+  if (!transcriptionText || transcriptionText.length < 50) {
+    return null; // Skip for very short transcriptions
+  }
+
+  if (!AI_TLDR_ENABLED) {
+    return null;
+  }
+
+  try {
+    const prompt = `${DEFAULT_TLDR_PROMPT}\n\n${transcriptionText}`;
+    const response = await openai.responses.create({
+      model: DEFAULT_TITLE_MODEL,
+      input: prompt,
+      max_output_tokens: AI_TLDR_MAX_TOKENS,
+      temperature: AI_TITLE_TEMPERATURE
+    });
+
+    const rawTLDR = response.output_text || response.outputText || response.output?.[0]?.content?.[0]?.text || null;
+
+    if (!rawTLDR) {
+      return null;
+    }
+
+    // Clean up the TLDR
+    const cleanedTLDR = String(rawTLDR)
+      .replace(/^(TLDR:|TL;DR:|Summary:)\s*/i, '') // Remove prefixes
+      .trim();
+
+    return cleanedTLDR;
+  } catch (error) {
+    console.error('Error generating TLDR:', error);
+    return null;
+  }
 }
 
 function buildCandidateFilename(baseName, extension) {
@@ -631,12 +670,23 @@ app.post('/api/transcribe', async (req, res) => {
       }
     }
 
+    // Generate TLDR
+    let generatedTLDR = null;
+    if (transcription?.text) {
+      try {
+        generatedTLDR = await generateTLDR(transcription.text);
+      } catch (tldrError) {
+        console.error('TLDR generation error:', tldrError);
+      }
+    }
+
     res.json({
       success: true,
       transcription: transcription?.text || '',
       language: 'en',
       duration: null,
       title: generatedTitle,
+      tldr: generatedTLDR,
       filename: updatedFilename,
       shareableUrl: updatedShareableUrl
     });
@@ -881,7 +931,7 @@ app.get('/api/threads/:recordingId', async (req, res) => {
 // Create short share link (Database-backed URL shortener)
 app.post('/api/create-share-link', async (req, res) => {
   try {
-    const { url, title, transcription, duration } = req.body;
+    const { url, title, transcription, duration, tldr } = req.body;
 
     if (!url) {
       return res.status(400).json({ error: 'URL is required' });
@@ -915,6 +965,7 @@ app.post('/api/create-share-link', async (req, res) => {
       url,
       title: title || null,
       transcription: transcription || null,
+      tldr: tldr || null,
       duration: duration || null,
       recordingId: recordingId || null,
       created: new Date().toISOString(),
@@ -973,6 +1024,7 @@ app.get('/api/get-share-link', async (req, res) => {
         url: data.url,
         title: data.title || null,
         transcription: data.transcription || null,
+        tldr: data.tldr || null,
         duration: data.duration || null
       });
 
