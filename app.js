@@ -1,5 +1,5 @@
 /**
- * Main Application
+ * Main Application - WITH FOLDER HIERARCHY v2025-10-26
  * Coordinates all modules and manages UI interactions
  */
 
@@ -7,6 +7,8 @@
 const recorder = new AudioRecorder();
 const uploader = new S3Uploader();
 let player = null;
+
+console.log('🚀 NEW CODE LOADED - FOLDER HIERARCHY VERSION - 2025-10-26 16:57');
 
 // DOM Elements
 const recordButton = document.getElementById('recordButton');
@@ -25,6 +27,9 @@ const themeToggle = document.getElementById('themeToggle');
 const playerModal = document.getElementById('playerModal');
 const deleteModal = document.getElementById('deleteModal');
 const toast = document.getElementById('toast');
+const searchInput = document.getElementById('searchInput');
+const clearSearchBtn = document.getElementById('clearSearchBtn');
+const collapseAllBtn = document.getElementById('collapseAllBtn');
 
 // Transcription Elements
 const transcriptionSection = document.getElementById('transcriptionSection');
@@ -47,10 +52,241 @@ let currentRecordingTitle = null;
 let originalRecordingFilename = null;
 let aiTitleEnabled = true;
 
+// Folder organization state
+let allRecordings = [];
+let expandedFolders = new Set();
+let isSearchMode = false;
+let searchQuery = '';
+let transcriptionCache = new Map(); // Cache for transcriptions
+
+/**
+ * Date organization utilities
+ */
+
+// Get calendar week bounds (Sunday to Saturday)
+function getCalendarWeekBounds(date) {
+  const d = new Date(date);
+  const day = d.getDay(); // 0 = Sunday
+
+  // Start of week (Sunday)
+  const weekStart = new Date(d);
+  weekStart.setDate(d.getDate() - day);
+  weekStart.setHours(0, 0, 0, 0);
+
+  // End of week (Saturday)
+  const weekEnd = new Date(weekStart);
+  weekEnd.setDate(weekStart.getDate() + 6);
+  weekEnd.setHours(23, 59, 59, 999);
+
+  return { start: weekStart, end: weekEnd };
+}
+
+// Format date labels
+function getYearLabel(date) {
+  return new Date(date).getFullYear().toString();
+}
+
+function getMonthLabel(date) {
+  const d = new Date(date);
+  const monthName = d.toLocaleDateString('en-US', { month: 'long' });
+  const year = d.getFullYear();
+  return `${monthName} ${year}`;
+}
+
+function getWeekLabel(date) {
+  const { start, end } = getCalendarWeekBounds(date);
+  const startMonth = start.toLocaleDateString('en-US', { month: 'short' });
+  const endMonth = end.toLocaleDateString('en-US', { month: 'short' });
+  const startDay = start.getDate();
+  const endDay = end.getDate();
+  const year = start.getFullYear();
+
+  if (startMonth === endMonth) {
+    return `Week of ${startMonth} ${startDay}-${endDay}, ${year}`;
+  } else {
+    return `Week of ${startMonth} ${startDay}-${endMonth} ${endDay}, ${year}`;
+  }
+}
+
+function getDayLabel(date) {
+  const d = new Date(date);
+  const today = new Date();
+  const yesterday = new Date(today);
+  yesterday.setDate(yesterday.getDate() - 1);
+
+  // Reset time parts for comparison
+  d.setHours(0, 0, 0, 0);
+  today.setHours(0, 0, 0, 0);
+  yesterday.setHours(0, 0, 0, 0);
+
+  if (d.getTime() === today.getTime()) {
+    return 'Today';
+  } else if (d.getTime() === yesterday.getTime()) {
+    return 'Yesterday';
+  } else {
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  }
+}
+
+// Get unique key for each hierarchy level
+function getYearKey(date) {
+  return `year-${getYearLabel(date)}`;
+}
+
+function getMonthKey(date) {
+  const d = new Date(date);
+  return `month-${d.getFullYear()}-${d.getMonth()}`;
+}
+
+function getWeekKey(date) {
+  const { start } = getCalendarWeekBounds(date);
+  return `week-${start.getTime()}`;
+}
+
+function getDayKey(date) {
+  const d = new Date(date);
+  d.setHours(0, 0, 0, 0);
+  return `day-${d.getTime()}`;
+}
+
+/**
+ * Organize recordings into hierarchical date structure
+ */
+function organizeRecordingsByDate(recordings) {
+  const hierarchy = {};
+
+  recordings.forEach(recording => {
+    const date = new Date(recording.lastModified);
+
+    const yearLabel = getYearLabel(date);
+    const monthLabel = getMonthLabel(date);
+    const weekLabel = getWeekLabel(date);
+    const dayLabel = getDayLabel(date);
+
+    const yearKey = getYearKey(date);
+    const monthKey = getMonthKey(date);
+    const weekKey = getWeekKey(date);
+    const dayKey = getDayKey(date);
+
+    // Build nested structure
+    if (!hierarchy[yearKey]) {
+      hierarchy[yearKey] = {
+        label: yearLabel,
+        key: yearKey,
+        months: {}
+      };
+    }
+
+    if (!hierarchy[yearKey].months[monthKey]) {
+      hierarchy[yearKey].months[monthKey] = {
+        label: monthLabel,
+        key: monthKey,
+        weeks: {}
+      };
+    }
+
+    if (!hierarchy[yearKey].months[monthKey].weeks[weekKey]) {
+      hierarchy[yearKey].months[monthKey].weeks[weekKey] = {
+        label: weekLabel,
+        key: weekKey,
+        days: {}
+      };
+    }
+
+    if (!hierarchy[yearKey].months[monthKey].weeks[weekKey].days[dayKey]) {
+      hierarchy[yearKey].months[monthKey].weeks[weekKey].days[dayKey] = {
+        label: dayLabel,
+        key: dayKey,
+        recordings: []
+      };
+    }
+
+    hierarchy[yearKey].months[monthKey].weeks[weekKey].days[dayKey].recordings.push(recording);
+  });
+
+  return hierarchy;
+}
+
+/**
+ * Count recordings in a hierarchy node
+ */
+function countRecordings(node) {
+  if (Array.isArray(node)) {
+    return node.length;
+  }
+
+  if (node.recordings) {
+    return node.recordings.length;
+  }
+
+  let count = 0;
+
+  if (node.days) {
+    Object.values(node.days).forEach(day => {
+      count += countRecordings(day);
+    });
+  } else if (node.weeks) {
+    Object.values(node.weeks).forEach(week => {
+      count += countRecordings(week);
+    });
+  } else if (node.months) {
+    Object.values(node.months).forEach(month => {
+      count += countRecordings(month);
+    });
+  }
+
+  return count;
+}
+
+/**
+ * Find the most recent day with recordings
+ */
+function findMostRecentDay(hierarchy) {
+  let mostRecentDate = null;
+  let mostRecentPath = [];
+
+  Object.values(hierarchy).forEach(year => {
+    Object.values(year.months).forEach(month => {
+      Object.values(month.weeks).forEach(week => {
+        Object.values(week.days).forEach(day => {
+          if (day.recordings && day.recordings.length > 0) {
+            const firstRecording = day.recordings[0];
+            const recordingDate = new Date(firstRecording.lastModified);
+
+            if (!mostRecentDate || recordingDate > mostRecentDate) {
+              mostRecentDate = recordingDate;
+              mostRecentPath = [year.key, month.key, week.key, day.key];
+            }
+          }
+        });
+      });
+    });
+  });
+
+  return mostRecentPath;
+}
+
+/**
+ * Initialize default expanded folders (most recent day + its parent week)
+ */
+function initializeDefaultExpandedFolders(hierarchy) {
+  const mostRecentPath = findMostRecentDay(hierarchy);
+
+  if (mostRecentPath.length === 4) {
+    const [yearKey, monthKey, weekKey, dayKey] = mostRecentPath;
+    expandedFolders.add(yearKey);
+    expandedFolders.add(monthKey);
+    expandedFolders.add(weekKey);
+    expandedFolders.add(dayKey);
+  }
+}
+
 /**
  * Initialize application
  */
 async function init() {
+  console.log('[DEBUG] ========== INITIALIZING APP WITH FOLDER HIERARCHY ==========');
+
   // Check browser support
   if (!AudioRecorder.isSupported()) {
     showError('Your browser does not support audio recording. Please use a modern browser like Chrome, Firefox, or Edge.');
@@ -65,6 +301,7 @@ async function init() {
   loadTheme();
 
   // Load recordings
+  console.log('[DEBUG] About to call loadRecordings()...');
   await loadRecordings();
 }
 
@@ -80,6 +317,21 @@ function setupEventListeners() {
 
   // Refresh recordings
   refreshButton.addEventListener('click', loadRecordings);
+
+  // Search input
+  if (searchInput) {
+    searchInput.addEventListener('input', handleSearch);
+  }
+
+  // Clear search button
+  if (clearSearchBtn) {
+    clearSearchBtn.addEventListener('click', clearSearch);
+  }
+
+  // Collapse all button
+  if (collapseAllBtn) {
+    collapseAllBtn.addEventListener('click', collapseAll);
+  }
 
   // Player modal controls
   document.getElementById('closePlayer').addEventListener('click', closePlayerModal);
@@ -231,12 +483,13 @@ async function loadRecordings() {
     loadingSpinner.style.display = 'block';
     emptyState.style.display = 'none';
 
-    // Remove existing recording items
-    const existingItems = recordingsList.querySelectorAll('.recording-item');
+    // Remove existing recording items and folders
+    const existingItems = recordingsList.querySelectorAll('.recording-item, .folder-item');
     existingItems.forEach(item => item.remove());
 
     // Fetch recordings
     const recordings = await uploader.getRecordings();
+    allRecordings = recordings;
 
     loadingSpinner.style.display = 'none';
 
@@ -245,17 +498,204 @@ async function loadRecordings() {
       return;
     }
 
-    // Display recordings
-    recordings.forEach(recording => {
-      const item = createRecordingItem(recording);
-      recordingsList.appendChild(item);
-    });
+    // If in search mode, render search results
+    if (isSearchMode) {
+      renderSearchResults(recordings);
+      return;
+    }
+
+    // Organize and render hierarchy
+    console.log('[DEBUG] Organizing recordings into hierarchy, count:', recordings.length);
+    const hierarchy = organizeRecordingsByDate(recordings);
+    console.log('[DEBUG] Hierarchy created:', hierarchy);
+
+    // Initialize default expanded folders on first load
+    if (expandedFolders.size === 0) {
+      initializeDefaultExpandedFolders(hierarchy);
+      console.log('[DEBUG] Expanded folders initialized:', expandedFolders);
+    }
+
+    console.log('[DEBUG] Rendering hierarchy...');
+    renderHierarchy(hierarchy);
+    console.log('[DEBUG] Hierarchy rendering complete');
 
   } catch (error) {
     console.error('Failed to load recordings:', error);
     loadingSpinner.style.display = 'none';
     showToast('Failed to load recordings', 'error');
   }
+}
+
+/**
+ * Render hierarchical folder structure
+ */
+function renderHierarchy(hierarchy) {
+  // Sort years in descending order (most recent first)
+  const years = Object.values(hierarchy).sort((a, b) => b.label.localeCompare(a.label));
+
+  years.forEach(year => {
+    const yearElement = createFolderItem(year.key, year.label, 'year', null);
+    recordingsList.appendChild(yearElement);
+
+    const yearContainer = yearElement.querySelector('.folder-children');
+
+    // Sort months in descending order (most recent first)
+    const months = Object.values(year.months).sort((a, b) => {
+      const [monthA, yearA] = [a.label.split(' ')[0], a.label.split(' ')[1]];
+      const [monthB, yearB] = [b.label.split(' ')[0], b.label.split(' ')[1]];
+      const dateA = new Date(`${monthA} 1, ${yearA}`);
+      const dateB = new Date(`${monthB} 1, ${yearB}`);
+      return dateB - dateA;
+    });
+
+    months.forEach(month => {
+      const monthElement = createFolderItem(month.key, month.label, 'month', null);
+      yearContainer.appendChild(monthElement);
+
+      const monthContainer = monthElement.querySelector('.folder-children');
+
+      // Sort weeks in descending order (most recent first)
+      const weeks = Object.values(month.weeks).sort((a, b) => {
+        const weekAKey = parseInt(a.key.split('-')[1]);
+        const weekBKey = parseInt(b.key.split('-')[1]);
+        return weekBKey - weekAKey;
+      });
+
+      weeks.forEach(week => {
+        const weekCount = countRecordings(week);
+        const weekElement = createFolderItem(week.key, week.label, 'week', weekCount);
+        monthContainer.appendChild(weekElement);
+
+        const weekContainer = weekElement.querySelector('.folder-children');
+
+        // Sort days in descending order (most recent first)
+        const days = Object.values(week.days).sort((a, b) => {
+          const dayAKey = parseInt(a.key.split('-')[1]);
+          const dayBKey = parseInt(b.key.split('-')[1]);
+          return dayBKey - dayAKey;
+        });
+
+        days.forEach(day => {
+          const dayCount = day.recordings.length;
+          const dayElement = createFolderItem(day.key, day.label, 'day', dayCount);
+          weekContainer.appendChild(dayElement);
+
+          const dayContainer = dayElement.querySelector('.folder-children');
+
+          // Add recordings to day
+          day.recordings.forEach(recording => {
+            const recordingItem = createRecordingItem(recording);
+            dayContainer.appendChild(recordingItem);
+          });
+        });
+      });
+    });
+  });
+}
+
+/**
+ * Create folder item element
+ */
+function createFolderItem(key, label, level, count) {
+  const isExpanded = expandedFolders.has(key);
+  const folderItem = document.createElement('div');
+  folderItem.className = `folder-item ${level}-folder`;
+  folderItem.setAttribute('data-level', level);
+  folderItem.setAttribute('data-key', key);
+
+  const countBadge = count !== null ? `<span class="recording-count">(${count})</span>` : '';
+  const arrowIcon = isExpanded ? '▼' : '▶';
+
+  folderItem.innerHTML = `
+    <button class="folder-toggle ${isExpanded ? 'expanded' : 'collapsed'}" data-key="${key}">
+      <span class="folder-icon">${arrowIcon}</span>
+      <span class="folder-label">${label}</span>
+      ${countBadge}
+    </button>
+    <div class="folder-children" style="display: ${isExpanded ? 'block' : 'none'};"></div>
+  `;
+
+  // Add toggle event listener
+  const toggleButton = folderItem.querySelector('.folder-toggle');
+  toggleButton.addEventListener('click', () => toggleFolder(key));
+
+  return folderItem;
+}
+
+/**
+ * Toggle folder expand/collapse
+ */
+function toggleFolder(folderKey) {
+  const folderItem = document.querySelector(`.folder-item[data-key="${folderKey}"]`);
+  if (!folderItem) return;
+
+  const toggleButton = folderItem.querySelector('.folder-toggle');
+  const childrenContainer = folderItem.querySelector('.folder-children');
+  const folderIcon = toggleButton.querySelector('.folder-icon');
+
+  if (expandedFolders.has(folderKey)) {
+    // Collapse
+    expandedFolders.delete(folderKey);
+    toggleButton.classList.remove('expanded');
+    toggleButton.classList.add('collapsed');
+    childrenContainer.style.display = 'none';
+    folderIcon.textContent = '▶';
+  } else {
+    // Expand
+    expandedFolders.add(folderKey);
+    toggleButton.classList.remove('collapsed');
+    toggleButton.classList.add('expanded');
+    childrenContainer.style.display = 'block';
+    folderIcon.textContent = '▼';
+  }
+}
+
+/**
+ * Collapse all folders
+ */
+function collapseAll() {
+  // Clear all expanded folders
+  expandedFolders.clear();
+
+  // Collapse all folder items in the DOM
+  const allFolders = document.querySelectorAll('.folder-item');
+  allFolders.forEach(folderItem => {
+    const toggleButton = folderItem.querySelector('.folder-toggle');
+    const childrenContainer = folderItem.querySelector('.folder-children');
+    const folderIcon = toggleButton.querySelector('.folder-icon');
+
+    toggleButton.classList.remove('expanded');
+    toggleButton.classList.add('collapsed');
+    childrenContainer.style.display = 'none';
+    folderIcon.textContent = '▶';
+  });
+
+  showToast('All folders collapsed', 'success');
+}
+
+/**
+ * Render search results (flat list)
+ */
+function renderSearchResults(recordings) {
+  if (recordings.length === 0) {
+    const noResults = document.createElement('div');
+    noResults.className = 'empty-state';
+    noResults.innerHTML = `
+      <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="11" cy="11" r="8"></circle>
+        <path d="m21 21-4.35-4.35"></path>
+      </svg>
+      <p>No recordings found</p>
+      <p class="empty-state-subtitle">Try a different search term</p>
+    `;
+    recordingsList.appendChild(noResults);
+    return;
+  }
+
+  recordings.forEach(recording => {
+    const item = createRecordingItem(recording);
+    recordingsList.appendChild(item);
+  });
 }
 
 /**
@@ -611,6 +1051,80 @@ function showToast(message, type = 'success') {
   setTimeout(() => {
     toast.style.display = 'none';
   }, 4000);
+}
+
+/**
+ * Handle search input
+ */
+let searchTimeout;
+async function handleSearch(e) {
+  const query = e.target.value.trim();
+
+  // Show/hide clear button
+  if (clearSearchBtn) {
+    clearSearchBtn.style.display = query ? 'flex' : 'none';
+  }
+
+  // Debounce search
+  clearTimeout(searchTimeout);
+  searchTimeout = setTimeout(async () => {
+    searchQuery = query;
+
+    if (!query) {
+      // Clear search, show hierarchy
+      isSearchMode = false;
+      await loadRecordings();
+      return;
+    }
+
+    // Enter search mode
+    isSearchMode = true;
+
+    // Search recordings
+    const results = await searchRecordings(query);
+
+    // Render results
+    loadingSpinner.style.display = 'none';
+    emptyState.style.display = 'none';
+
+    const existingItems = recordingsList.querySelectorAll('.recording-item, .folder-item');
+    existingItems.forEach(item => item.remove());
+
+    renderSearchResults(results);
+  }, 300);
+}
+
+/**
+ * Clear search
+ */
+async function clearSearch() {
+  if (searchInput) {
+    searchInput.value = '';
+  }
+  if (clearSearchBtn) {
+    clearSearchBtn.style.display = 'none';
+  }
+  searchQuery = '';
+  isSearchMode = false;
+  await loadRecordings();
+}
+
+/**
+ * Search recordings by filename
+ * Note: Transcription search can be added when transcriptions are stored
+ */
+async function searchRecordings(query) {
+  const lowerQuery = query.toLowerCase();
+  const results = [];
+
+  for (const recording of allRecordings) {
+    // Search filename
+    if (recording.filename.toLowerCase().includes(lowerQuery)) {
+      results.push(recording);
+    }
+  }
+
+  return results;
 }
 
 /**

@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="Record and share voice recordings with ease">
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
@@ -13,8 +13,6 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="styles.css?v=20251002-typography">
-    <!-- Passcode authentication - loads first -->
-    <script src="auth.js"></script>
 </head>
 <body data-theme="light">
     <div class="container">
@@ -158,6 +156,30 @@
                     </button>
                 </div>
 
+                <div class="search-toolbar">
+                    <div class="search-container">
+                        <input
+                            type="text"
+                            id="searchInput"
+                            class="search-input"
+                            placeholder="Search recordings by filename..."
+                            aria-label="Search recordings"
+                        />
+                        <button class="clear-search-btn" id="clearSearchBtn" style="display: none;" aria-label="Clear search">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <line x1="18" y1="6" x2="6" y2="18"></line>
+                                <line x1="6" y1="6" x2="18" y2="18"></line>
+                            </svg>
+                        </button>
+                    </div>
+                    <button class="collapse-all-btn" id="collapseAllBtn" aria-label="Collapse all folders">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="6 9 12 15 18 9"></polyline>
+                        </svg>
+                        Collapse All
+                    </button>
+                </div>
+
                 <div class="recordings-list" id="recordingsList">
                     <div class="loading-spinner" id="loadingSpinner">
                         <div class="spinner"></div>
@@ -242,9 +264,9 @@
     <div class="toast" id="toast" style="display: none;"></div>
 
     <!-- Scripts -->
-    <script src="recorder.js"></script>
-    <script src="uploader.js"></script>
-    <script src="player.js"></script>
-    <script src="app.js"></script>
+    <script src="recorder.js?v=20251026-1657"></script>
+    <script src="uploader.js?v=20251026-1657"></script>
+    <script src="player.js?v=20251026-1657"></script>
+    <script src="app.js?v=20251026-1657"></script>
 </body>
 </html>

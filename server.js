@@ -37,10 +37,10 @@ if (fs.existsSync('.env')) {
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-// Rate limiting
+// Rate limiting - increased for development
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // Limit each IP to 100 requests per windowMs
+  max: 1000, // Limit each IP to 1000 requests per windowMs (increased for development)
   message: 'Too many requests from this IP, please try again later.'
 });
 
@@ -64,9 +64,16 @@ app.use((req, res, next) => {
 });
 
 app.use(express.static('public', {
+  etag: false,
+  lastModified: false,
+  maxAge: 0,
   setHeaders: (res, path) => {
     // Set CORS headers for static files
     res.set('Access-Control-Allow-Origin', '*');
+    // Disable caching for development
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+    res.set('Pragma', 'no-cache');
+    res.set('Expires', '0');
   }
 }));
 
