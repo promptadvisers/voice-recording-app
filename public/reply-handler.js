@@ -3,7 +3,7 @@
 
 (function() {
     // Get elements
-    const replyButton = document.getElementById('reply-button');
+    const replyButton = document.getElementById('voice-reply-button');
     const replyModal = document.getElementById('reply-modal');
     const replyClose = document.getElementById('reply-close');
     const replyTitle = document.getElementById('reply-title');

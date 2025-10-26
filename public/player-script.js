@@ -477,44 +477,115 @@ function createReplyItem(reply, index) {
     const timestamp = new Date(reply.timestamp);
     const timeAgo = getTimeAgo(timestamp);
 
-    // Format duration
-    const durationText = reply.duration ? formatTime(reply.duration) : '--:--';
+    const replyType = reply.type || 'voice'; // Default to voice for backward compatibility
 
-    // Has transcription?
-    const hasTranscription = reply.transcription && reply.transcription.trim().length > 0;
+    if (replyType === 'text') {
+        // Text reply rendering
+        const textContent = reply.transcription || '';
+        const renderedMarkdown = renderMarkdown(textContent);
 
-    item.innerHTML = `
-        <div class="reply-header">
-            <span class="reply-timestamp">${timeAgo}</span>
-            <span class="reply-duration">${durationText}</span>
-        </div>
-        ${hasTranscription ? `
-            <div class="reply-transcription" id="reply-trans-${reply.id}">
-                ${reply.transcription}
+        item.innerHTML = `
+            <div class="reply-header">
+                <span class="reply-timestamp">💬 ${timeAgo}</span>
             </div>
-            ${reply.transcription.length > 150 ? `
-                <div class="reply-transcription-toggle" onclick="toggleTranscription('${reply.id}')">
-                    Show more
-                </div>
-            ` : ''}
-        ` : ''}
-        <div class="reply-actions">
-            <button class="reply-play-btn" onclick="playReply('${reply.shareUrl || reply.url}', '${reply.id}')">
-                ▶ Play Reply
-            </button>
-            <button class="reply-share-btn" onclick="shareReply('${reply.shareUrl || reply.url}')">
-                📤 Share
-            </button>
-            ${hasTranscription ? `
-                <button class="reply-share-btn" onclick="copyReplyTranscription('${reply.id}')">
+            <div class="text-message-bubble" id="reply-msg-${reply.id}">
+                ${renderedMarkdown}
+            </div>
+            <div class="reply-actions">
+                <button class="reply-share-btn" onclick="copyTextMessage('${reply.id}')">
                     📋 Copy
                 </button>
+            </div>
+        `;
+    } else {
+        // Voice reply rendering (existing code)
+        const durationText = reply.duration ? formatTime(reply.duration) : '--:--';
+        const hasTranscription = reply.transcription && reply.transcription.trim().length > 0;
+
+        item.innerHTML = `
+            <div class="reply-header">
+                <span class="reply-timestamp">🎙️ ${timeAgo}</span>
+                <span class="reply-duration">${durationText}</span>
+            </div>
+            ${hasTranscription ? `
+                <div class="reply-transcription" id="reply-trans-${reply.id}">
+                    ${reply.transcription}
+                </div>
+                ${reply.transcription.length > 150 ? `
+                    <div class="reply-transcription-toggle" onclick="toggleTranscription('${reply.id}')">
+                        Show more
+                    </div>
+                ` : ''}
             ` : ''}
-        </div>
-    `;
+            <div class="reply-actions">
+                <button class="reply-play-btn" onclick="playReply('${reply.shareUrl || reply.url}', '${reply.id}')">
+                    ▶ Play Reply
+                </button>
+                <button class="reply-share-btn" onclick="shareReply('${reply.shareUrl || reply.url}')">
+                    📤 Share
+                </button>
+                ${hasTranscription ? `
+                    <button class="reply-share-btn" onclick="copyReplyTranscription('${reply.id}')">
+                        📋 Copy
+                    </button>
+                ` : ''}
+            </div>
+        `;
+    }
 
     return item;
 }
+
+// Render markdown safely
+function renderMarkdown(text) {
+    if (!text) return '';
+
+    // Use marked.js to parse markdown
+    if (typeof marked !== 'undefined') {
+        const rawHtml = marked.parse(text);
+        // Use DOMPurify to sanitize the HTML
+        if (typeof DOMPurify !== 'undefined') {
+            return DOMPurify.sanitize(rawHtml);
+        }
+        return rawHtml;
+    }
+
+    // Fallback if marked.js not loaded
+    return text.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+// Copy text message
+window.copyTextMessage = async function(replyId) {
+    const messageEl = document.getElementById(`reply-msg-${replyId}`);
+    if (!messageEl) return;
+
+    const text = messageEl.textContent;
+    if (!text) return;
+
+    try {
+        await navigator.clipboard.writeText(text);
+
+        // Find the copy button for this reply
+        const replyItem = messageEl.closest('.reply-item');
+        const copyBtn = replyItem.querySelector('.reply-share-btn');
+
+        if (copyBtn) {
+            const originalText = copyBtn.innerHTML;
+            copyBtn.innerHTML = '✓ Copied!';
+            copyBtn.style.borderColor = '#38a169';
+            copyBtn.style.color = '#38a169';
+
+            setTimeout(() => {
+                copyBtn.innerHTML = originalText;
+                copyBtn.style.borderColor = '';
+                copyBtn.style.color = '';
+            }, 2000);
+        }
+    } catch (err) {
+        console.error('Failed to copy text message:', err);
+        alert('Failed to copy to clipboard');
+    }
+};
 
 // Get time ago string
 function getTimeAgo(date) {
@@ -659,6 +730,161 @@ window.copyReplyTranscription = async function(replyId) {
 // Load thread on page load
 if (audioUrl) {
     loadThread();
+}
+
+// Text Reply Modal Management
+const textReplyButton = document.getElementById('text-reply-button');
+const textReplyModal = document.getElementById('text-reply-modal');
+const textReplyClose = document.getElementById('text-reply-close');
+const textReplyTextarea = document.getElementById('text-reply-textarea');
+const charCounter = document.getElementById('char-counter');
+const sendTextReplyBtn = document.getElementById('send-text-reply');
+const textReplyStatus = document.getElementById('text-reply-status');
+
+// Open text reply modal
+if (textReplyButton) {
+    textReplyButton.addEventListener('click', () => {
+        textReplyModal.classList.add('active');
+        textReplyTextarea.value = '';
+        charCounter.textContent = '0/500';
+        textReplyStatus.textContent = '';
+        textReplyStatus.className = 'text-reply-status';
+        sendTextReplyBtn.disabled = false;
+    });
+}
+
+// Close text reply modal
+if (textReplyClose) {
+    textReplyClose.addEventListener('click', () => {
+        textReplyModal.classList.remove('active');
+    });
+}
+
+// Close modal on outside click
+if (textReplyModal) {
+    textReplyModal.addEventListener('click', (e) => {
+        if (e.target === textReplyModal) {
+            textReplyModal.classList.remove('active');
+        }
+    });
+}
+
+// Character counter
+if (textReplyTextarea) {
+    textReplyTextarea.addEventListener('input', () => {
+        const length = textReplyTextarea.value.length;
+        charCounter.textContent = `${length}/500`;
+
+        if (length > 450) {
+            charCounter.classList.add('warning');
+        } else {
+            charCounter.classList.remove('warning');
+        }
+
+        if (length >= 500) {
+            charCounter.classList.add('error');
+        } else {
+            charCounter.classList.remove('error');
+        }
+    });
+}
+
+// Send text reply
+if (sendTextReplyBtn) {
+    sendTextReplyBtn.addEventListener('click', async () => {
+        const message = textReplyTextarea.value.trim();
+
+        if (!message) {
+            textReplyStatus.textContent = 'Please enter a message';
+            textReplyStatus.className = 'text-reply-status error';
+            return;
+        }
+
+        if (message.length > 500) {
+            textReplyStatus.textContent = 'Message is too long (max 500 characters)';
+            textReplyStatus.className = 'text-reply-status error';
+            return;
+        }
+
+        try {
+            textReplyStatus.textContent = 'Sending your reply...';
+            textReplyStatus.className = 'text-reply-status';
+            sendTextReplyBtn.disabled = true;
+
+            // Extract recording ID
+            const recordingId = extractRecordingId();
+            if (!recordingId) {
+                throw new Error('Could not determine recording ID');
+            }
+
+            // Send text reply to server
+            const response = await fetch(`/api/recordings/${encodeURIComponent(recordingId)}/replies`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    type: 'text',
+                    textMessage: message,
+                    timestamp: new Date().toISOString()
+                })
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || 'Failed to send reply');
+            }
+
+            const result = await response.json();
+
+            // Show success
+            textReplyStatus.textContent = '✓ Your reply has been sent!';
+            textReplyStatus.className = 'text-reply-status success';
+
+            // Send webhook in background
+            sendTextReplyWebhook(message, recordingId);
+
+            // Wait a moment then close modal and reload thread
+            setTimeout(() => {
+                textReplyModal.classList.remove('active');
+                loadThread();
+            }, 1500);
+
+        } catch (error) {
+            console.error('Error sending text reply:', error);
+            textReplyStatus.textContent = `Failed to send reply: ${error.message}`;
+            textReplyStatus.className = 'text-reply-status error';
+            sendTextReplyBtn.disabled = false;
+        }
+    });
+}
+
+// Send webhook for text reply
+async function sendTextReplyWebhook(message, recordingId) {
+    try {
+        const originalTitle = document.getElementById('recording-title').textContent;
+        const originalUrl = window.audioUrl || '';
+
+        await fetch('https://promptadvisers.app.n8n.cloud/webhook/data-cleanup', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                event_type: 'text_reply',
+                timestamp: new Date().toISOString(),
+                original_recording: {
+                    title: originalTitle,
+                    url: originalUrl,
+                    recordingId: recordingId
+                },
+                reply: {
+                    type: 'text',
+                    message: message,
+                    timestamp: new Date().toISOString()
+                }
+            }),
+            mode: 'no-cors'
+        });
+    } catch (error) {
+        console.warn('Failed to send webhook for text reply:', error);
+    }
 }
 
 // Transcription copy and download functionality

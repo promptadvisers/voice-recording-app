@@ -509,6 +509,137 @@
             font-weight: 600;
         }
 
+        /* Reply Buttons Container */
+        .reply-buttons {
+            display: flex;
+            gap: 12px;
+            margin-top: 20px;
+        }
+
+        .voice-reply-btn,
+        .text-reply-btn {
+            flex: 1;
+        }
+
+        /* Text Reply Modal */
+        .text-reply-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 10000;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .text-reply-modal.active {
+            display: flex;
+        }
+
+        .text-reply-modal-content {
+            background: white;
+            border-radius: 24px;
+            padding: 40px;
+            max-width: 600px;
+            width: 100%;
+            position: relative;
+        }
+
+        .text-reply-form {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .text-reply-textarea {
+            width: 100%;
+            min-height: 150px;
+            padding: 16px;
+            border: 2px solid #e0e0e0;
+            border-radius: 12px;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            font-size: 15px;
+            line-height: 1.6;
+            resize: vertical;
+            transition: border-color 0.3s ease;
+        }
+
+        .text-reply-textarea:focus {
+            outline: none;
+            border-color: #1a73e8;
+        }
+
+        .text-reply-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .char-counter {
+            font-size: 13px;
+            color: #666;
+            font-weight: 600;
+        }
+
+        .char-counter.warning {
+            color: #f59e0b;
+        }
+
+        .char-counter.error {
+            color: #e53e3e;
+        }
+
+        .markdown-hint {
+            font-size: 12px;
+            color: #718096;
+        }
+
+        .send-text-reply-btn {
+            width: 100%;
+            padding: 16px;
+            background: linear-gradient(135deg, #1a73e8 0%, #0d47a1 100%);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .send-text-reply-btn:hover {
+            opacity: 0.9;
+            transform: translateY(-1px);
+        }
+
+        .send-text-reply-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .text-reply-status {
+            text-align: center;
+            font-size: 14px;
+            color: #666;
+            min-height: 20px;
+        }
+
+        .text-reply-status.success {
+            color: #38a169;
+            font-weight: 600;
+        }
+
+        .text-reply-status.error {
+            color: #e53e3e;
+            font-weight: 600;
+        }
+
         /* Thread Section */
         .thread-section {
             margin-top: 30px;
@@ -643,6 +774,54 @@
             text-decoration: underline;
         }
 
+        /* Text Message Bubble */
+        .text-message-bubble {
+            background: #e6f2ff;
+            border-left: 4px solid #1a73e8;
+            padding: 16px;
+            border-radius: 12px;
+            margin-bottom: 12px;
+            line-height: 1.6;
+            font-size: 14px;
+            color: #2d3748;
+        }
+
+        .text-message-bubble p {
+            margin: 0 0 8px 0;
+        }
+
+        .text-message-bubble p:last-child {
+            margin-bottom: 0;
+        }
+
+        .text-message-bubble strong {
+            font-weight: 600;
+            color: #1a1a1a;
+        }
+
+        .text-message-bubble em {
+            font-style: italic;
+        }
+
+        .text-message-bubble a {
+            color: #1a73e8;
+            text-decoration: underline;
+        }
+
+        .text-message-bubble code {
+            background: #f7fafc;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+        }
+
+        .text-message-bubble ul,
+        .text-message-bubble ol {
+            margin: 8px 0;
+            padding-left: 24px;
+        }
+
         .reply-actions {
             display: flex;
             gap: 8px;
@@ -749,10 +928,15 @@
                 </button>
             </div>
 
-            <!-- Reply Button -->
-            <button class="reply-button" id="reply-button">
-                🎙️ Reply with Voice
-            </button>
+            <!-- Reply Buttons -->
+            <div class="reply-buttons">
+                <button class="reply-button voice-reply-btn" id="voice-reply-button">
+                    🎙️ Reply with Voice
+                </button>
+                <button class="reply-button text-reply-btn" id="text-reply-button">
+                    💬 Reply with Text
+                </button>
+            </div>
         </div>
 
         <div class="transcription" id="transcription">
@@ -809,7 +993,41 @@
         </div>
     </div>
 
+    <!-- Text Reply Modal -->
+    <div class="text-reply-modal" id="text-reply-modal">
+        <div class="text-reply-modal-content">
+            <button class="reply-close" id="text-reply-close">×</button>
+
+            <h2 id="text-reply-title">Reply with Text</h2>
+
+            <div class="text-reply-form">
+                <textarea
+                    id="text-reply-textarea"
+                    class="text-reply-textarea"
+                    placeholder="Type your reply... (Markdown supported)"
+                    maxlength="500"
+                ></textarea>
+
+                <div class="text-reply-footer">
+                    <div class="char-counter" id="char-counter">0/500</div>
+                    <div class="markdown-hint">💡 <strong>Bold</strong> *Italic* [Link](url)</div>
+                </div>
+
+                <button class="send-text-reply-btn" id="send-text-reply">
+                    Send Reply
+                </button>
+
+                <div class="text-reply-status" id="text-reply-status"></div>
+            </div>
+        </div>
+    </div>
+
     <audio id="audio" preload="metadata" crossorigin="anonymous"></audio>
+
+    <!-- Marked.js for markdown rendering -->
+    <script src="https://cdn.jsdelivr.net/npm/marked@11.1.1/marked.min.js"></script>
+    <!-- DOMPurify for sanitization -->
+    <script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.8/dist/purify.min.js"></script>
 
     <script src="/player-script.js"></script>
     <script src="/reply-handler.js"></script>

@@ -730,10 +730,26 @@ app.get('/api/health', (req, res) => {
 app.post('/api/recordings/:recordingId/replies', async (req, res) => {
   try {
     const { recordingId } = req.params;
-    const { replyUrl, replyShareUrl, transcription, duration, timestamp } = req.body;
+    const { type, replyUrl, replyShareUrl, transcription, duration, timestamp, textMessage } = req.body;
 
-    if (!recordingId || !replyUrl) {
-      return res.status(400).json({ error: 'Recording ID and reply URL are required' });
+    // Validate based on reply type
+    const replyType = type || 'voice'; // Default to voice for backward compatibility
+
+    if (!recordingId) {
+      return res.status(400).json({ error: 'Recording ID is required' });
+    }
+
+    if (replyType === 'voice' && !replyUrl) {
+      return res.status(400).json({ error: 'Reply URL is required for voice replies' });
+    }
+
+    if (replyType === 'text' && !textMessage) {
+      return res.status(400).json({ error: 'Text message is required for text replies' });
+    }
+
+    // Validate text message length
+    if (replyType === 'text' && (textMessage.length < 1 || textMessage.length > 500)) {
+      return res.status(400).json({ error: 'Text message must be between 1 and 500 characters' });
     }
 
     // Check if Redis is available
@@ -747,10 +763,11 @@ app.post('/api/recordings/:recordingId/replies', async (req, res) => {
 
     // Store reply data in Redis hash
     const replyData = {
-      url: replyUrl,
-      shareUrl: replyShareUrl || replyUrl,
-      transcription: transcription || '',
-      duration: duration || 0,
+      type: replyType,
+      url: replyType === 'voice' ? replyUrl : null,
+      shareUrl: replyType === 'voice' ? (replyShareUrl || replyUrl) : null,
+      transcription: replyType === 'text' ? textMessage : (transcription || ''),
+      duration: replyType === 'text' ? 0 : (duration || 0),
       timestamp: replyTimestamp,
       recordingId: recordingId
     };
@@ -765,6 +782,7 @@ app.post('/api/recordings/:recordingId/replies', async (req, res) => {
     res.status(200).json({
       success: true,
       replyId,
+      type: replyType,
       message: 'Reply added to thread'
     });
 
