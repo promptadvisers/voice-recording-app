@@ -87,6 +87,13 @@ const AUDIO_ENHANCEMENT_ENABLED = process.env.ENABLE_AUDIO_ENHANCEMENT === 'true
 const AUDIO_ENHANCEMENT_SCRIPT = process.env.AUDIO_ENHANCEMENT_SCRIPT || path.join(__dirname, 'scripts', 'enhance_audio.py');
 const AUDIO_ENHANCEMENT_OUTPUT_SUFFIX = process.env.AUDIO_ENHANCEMENT_OUTPUT_SUFFIX || '-enhanced';
 
+// Initialize global OpenAI client
+let openaiClient = null;
+if (process.env.OPENAI_API_KEY) {
+  openaiClient = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  console.log('✓ OpenAI client initialized');
+}
+
 // Read AWS credentials from CSV file or environment variables
 function loadAWSCredentials() {
   try {
@@ -253,12 +260,17 @@ async function generateTLDR(transcriptionText) {
     return null;
   }
 
+  if (!openaiClient) {
+    console.log('[TLDR] ERROR: OpenAI client not initialized');
+    return null;
+  }
+
   try {
     const prompt = `${DEFAULT_TLDR_PROMPT}\n\n${transcriptionText}`;
     console.log('[TLDR] Sending prompt to OpenAI (model:', DEFAULT_TITLE_MODEL, ')');
     console.log('[TLDR] Prompt:', prompt);
 
-    const response = await openai.responses.create({
+    const response = await openaiClient.responses.create({
       model: DEFAULT_TITLE_MODEL,
       input: prompt,
       max_output_tokens: AI_TLDR_MAX_TOKENS,
