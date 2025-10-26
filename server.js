@@ -240,8 +240,8 @@ function cleanGeneratedTitle(title) {
 }
 
 async function generateTLDR(transcriptionText) {
-  if (!transcriptionText || transcriptionText.length < 50) {
-    return null; // Skip for very short transcriptions
+  if (!transcriptionText || !transcriptionText.trim()) {
+    return null; // Skip if no transcription
   }
 
   if (!AI_TLDR_ENABLED) {
