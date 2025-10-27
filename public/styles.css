@@ -1,3 +1,23 @@
+/* CRITICAL: Mobile viewport fixes - LOAD FIRST */
+html {
+  box-sizing: border-box;
+  -webkit-text-size-adjust: 100%;
+  -moz-text-size-adjust: 100%;
+  -ms-text-size-adjust: 100%;
+}
+
+*, *::before, *::after {
+  box-sizing: inherit;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  min-width: 320px;
+  width: 100%;
+  overflow-x: hidden;
+}
+
 .record-button-ring {
   pointer-events: none;
 }
