@@ -280,17 +280,26 @@ class S3Uploader {
    */
   static async copyToClipboard(text) {
     try {
-      // Try modern Clipboard API first
-      if (navigator.clipboard && navigator.clipboard.writeText) {
-        await navigator.clipboard.writeText(text);
-        return true;
+      // On mobile browsers, especially in non-HTTPS contexts, always use fallback
+      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+      const isHTTPS = window.location.protocol === 'https:';
+
+      // Try modern Clipboard API first (only on HTTPS or localhost)
+      if (!isMobile && navigator.clipboard && navigator.clipboard.writeText && (isHTTPS || window.location.hostname === 'localhost')) {
+        try {
+          await navigator.clipboard.writeText(text);
+          return true;
+        } catch (clipError) {
+          console.log('Clipboard API failed, using fallback:', clipError);
+          return S3Uploader.fallbackCopyToClipboard(text);
+        }
       }
 
       // Fallback for browsers that don't support Clipboard API
       // This is more reliable on mobile browsers
       return S3Uploader.fallbackCopyToClipboard(text);
     } catch (error) {
-      console.error('Clipboard API failed:', error);
+      console.error('Copy to clipboard failed:', error);
       // If modern API fails (common on mobile), try fallback
       return S3Uploader.fallbackCopyToClipboard(text);
     }
@@ -324,22 +333,33 @@ class S3Uploader {
 
       document.body.appendChild(textarea);
 
-      // Select the text
+      // Select the text - mobile-optimized
       textarea.focus();
-      textarea.select();
 
-      // For iOS specifically
-      if (navigator.userAgent.match(/ipad|iphone/i)) {
+      // For iOS and mobile devices - enhanced selection
+      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+
+      if (isMobile) {
+        // Make readonly to prevent keyboard on mobile
+        textarea.setAttribute('readonly', '');
+        // iOS specific selection
         const range = document.createRange();
         range.selectNodeContents(textarea);
         const selection = window.getSelection();
         selection.removeAllRanges();
         selection.addRange(range);
-        textarea.setSelectionRange(0, 999999);
+        textarea.setSelectionRange(0, text.length);
+      } else {
+        textarea.select();
       }
 
       // Execute copy command
-      const success = document.execCommand('copy');
+      let success = false;
+      try {
+        success = document.execCommand('copy');
+      } catch (execError) {
+        console.error('execCommand failed:', execError);
+      }
 
       // Clean up
       document.body.removeChild(textarea);
