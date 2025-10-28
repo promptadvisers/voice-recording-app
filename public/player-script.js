@@ -90,6 +90,39 @@ if (!audioUrl) {
         generateTLDROnDemand(transcription);
     }
 
+    // If transcription or TLDR is missing, try to fetch from S3 metadata
+    if (!transcription || !tldr) {
+        console.log('[Player] Transcription or TLDR missing from URL, attempting to fetch from S3 metadata');
+        fetchMetadataFromS3(audioUrl).then(metadata => {
+            if (metadata) {
+                // Update transcription if it was missing
+                if (!transcription && metadata.transcription) {
+                    console.log('[Player] Retrieved transcription from S3 metadata');
+                    transcriptionText.textContent = metadata.transcription;
+                    transcriptionEl.classList.add('visible');
+                }
+
+                // Update TLDR if it was missing
+                if (!tldr && metadata.tldr) {
+                    console.log('[Player] Retrieved TLDR from S3 metadata');
+                    const tldrTextEl = document.getElementById('tldr-text');
+                    const tldrSection = document.getElementById('tldr-section');
+                    tldrTextEl.textContent = metadata.tldr;
+                    tldrSection.style.display = 'block';
+                }
+
+                // If still no TLDR but we now have transcription, generate it
+                if (!tldr && !metadata.tldr && (transcription || metadata.transcription)) {
+                    const textForTldr = metadata.transcription || transcription;
+                    console.log('[Player] Generating TLDR from fetched transcription');
+                    generateTLDROnDemand(textForTldr);
+                }
+            }
+        }).catch(err => {
+            console.warn('[Player] Failed to fetch metadata from S3:', err);
+        });
+    }
+
     // Always start with "Click play to start"
     recordingDate.textContent = 'Click play to start';
 
@@ -332,6 +365,24 @@ shareButton.addEventListener('click', async () => {
             }
         };
 
+        // Get current transcription and TLDR from the page if not in URL params
+        let currentTranscription = transcription ? safeDecode(transcription) : null;
+        let currentTldr = tldr ? safeDecode(tldr) : null;
+
+        // If not in URL params, try to get from the displayed elements
+        if (!currentTranscription && transcriptionText && transcriptionText.textContent) {
+            currentTranscription = transcriptionText.textContent;
+            console.log('[Share] Using transcription from page display');
+        }
+
+        if (!currentTldr) {
+            const tldrTextEl = document.getElementById('tldr-text');
+            if (tldrTextEl && tldrTextEl.textContent) {
+                currentTldr = tldrTextEl.textContent;
+                console.log('[Share] Using TLDR from page display');
+            }
+        }
+
         // Create short URL
         const response = await fetch('/api/create-share-link', {
             method: 'POST',
@@ -341,7 +392,8 @@ shareButton.addEventListener('click', async () => {
             body: JSON.stringify({
                 url: audioUrl,
                 title: title ? safeDecode(title) : null,
-                transcription: transcription ? safeDecode(transcription) : null,
+                transcription: currentTranscription,
+                tldr: currentTldr,
                 duration: audio.duration || parseFloat(durationParam) || null
             })
         });
@@ -1023,5 +1075,41 @@ async function generateTLDROnDemand(transcriptionText) {
 
     } catch (error) {
         console.error('[Player] Error generating TLDR on-demand:', error);
+    }
+}
+
+// Fetch metadata from S3
+async function fetchMetadataFromS3(audioUrl) {
+    try {
+        // Extract filename from audio URL
+        const urlObj = new URL(audioUrl);
+        const pathname = urlObj.pathname;
+        const filename = pathname.split('/').pop().split('?')[0];
+
+        if (!filename) {
+            console.warn('[Player] Could not extract filename from audio URL');
+            return null;
+        }
+
+        console.log('[Player] Fetching metadata for filename:', filename);
+
+        const response = await fetch(`/api/get-metadata?filename=${encodeURIComponent(filename)}`);
+
+        if (!response.ok) {
+            if (response.status === 404) {
+                console.log('[Player] No metadata file found in S3 for this recording');
+            } else {
+                console.error('[Player] Failed to fetch metadata:', response.status);
+            }
+            return null;
+        }
+
+        const data = await response.json();
+        console.log('[Player] Successfully fetched metadata from S3:', data);
+
+        return data.metadata || null;
+    } catch (error) {
+        console.error('[Player] Error fetching metadata from S3:', error);
+        return null;
     }
 }
